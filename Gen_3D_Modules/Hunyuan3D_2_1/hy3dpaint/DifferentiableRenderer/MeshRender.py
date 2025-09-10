@@ -35,8 +35,13 @@ except:
 
 try:
     from .mesh_inpaint_processor import meshVerticeInpaint  # , meshVerticeColor
-except:
-    print("InPaint Function CAN NOT BE Imported!!!")
+except Exception as e:
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print("!!! FAILED TO IMPORT INPAINT FUNCTION !!!")
+    print(f"THE REAL ERROR IS: {e}")
+    import traceback
+    traceback.print_exc()
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
 
 class RenderMode(Enum):
