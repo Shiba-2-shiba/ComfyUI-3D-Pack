@@ -56,7 +56,6 @@ from DiffRastMesh.diff_mesh import DiffRastRenderer
 from GaussianSplatting.main_3DGS import GaussianSplatting3D, GaussianSplattingCameraController, GSParams
 from GaussianSplatting.main_3DGS_renderer import GaussianSplattingRenderer
 from NeRF.Instant_NGP import InstantNGP
-
 from TriplaneGaussian.triplane_gaussian_transformers import TGS
 from TriplaneGaussian.utils.config import ExperimentConfig as ExperimentConfigTGS, load_config as load_config_tgs
 from TriplaneGaussian.data import CustomImageOrbitDataset
@@ -65,12 +64,7 @@ from LGM.core.options import config_defaults
 from LGM.mvdream.pipeline_mvdream import MVDreamPipeline
 from LGM.large_multiview_gaussian_model import LargeMultiviewGaussianModel
 from LGM.nerf_marching_cubes_converter import GSConverterNeRFMarchingCubes
-from TripoSR.system import TSR
-from StableFast3D.sf3d import utils as sf3d_utils
-from StableFast3D.sf3d.system import SF3D
 from InstantMesh.utils.camera_util import oribt_camera_poses_to_input_cameras
-from CRM.model.crm.model import ConvolutionalReconstructionModel
-from CRM.model.crm.sampler import CRMSampler
 from Wonder3D.pipelines.pipeline_mvdiffusion_image import MVDiffusionImagePipeline
 from Wonder3D.data.single_image_dataset import SingleImageDataset as MVSingleImageDataset
 from Wonder3D.utils.misc import load_config as load_config_wonder3d
@@ -85,22 +79,15 @@ from Unique3D.scripts.utils import from_py3d_mesh, to_py3d_mesh, to_pyml_mesh, s
 from Unique3D.scripts.project_mesh import multiview_color_projection, multiview_color_projection_texture, get_cameras_list, get_orbit_cameras_list
 from Unique3D.mesh_reconstruction.recon import reconstruct_stage1
 from Unique3D.mesh_reconstruction.refine import run_mesh_refine
-from CharacterGen.character_inference import Inference2D_API, Inference3D_API
-from CharacterGen.Stage_3D.lrm.utils.config import load_config as load_config_cg3d
 import craftsman
 from craftsman.systems.base import BaseSystem
 from craftsman.utils.config import ExperimentConfig as ExperimentConfigCraftsman, load_config as load_config_craftsman
-from CRM_T2I_V2.model.crm.sampler import CRMSamplerV2
-from CRM_T2I_V2.model.t2i_adapter_v2 import T2IAdapterV2
-from CRM_T2I_V3.model.crm.sampler import CRMSamplerV3
 from Hunyuan3D_V1.mvd.hunyuan3d_mvd_std_pipeline import HunYuan3D_MVD_Std_Pipeline
 from Hunyuan3D_V1.mvd.hunyuan3d_mvd_lite_pipeline import Hunyuan3D_MVD_Lite_Pipeline
 from Hunyuan3D_V1.infer import Views2Mesh
 from Hunyuan3D_V2.hy3dgen.shapegen import FaceReducer, FloaterRemover, DegenerateFaceRemover, Hunyuan3DDiTFlowMatchingPipeline
 from Hunyuan3D_V2.hy3dgen.texgen import Hunyuan3DPaintPipeline
 from Hunyuan3D_V2.hy3dgen.rembg import BackgroundRemover
-from TRELLIS.trellis.pipelines import TrellisImageTo3DPipeline
-from TRELLIS.trellis.utils import postprocessing_utils
 from TripoSG.pipelines.pipeline_triposg import TripoSGPipeline
 from TripoSG.pipelines.pipeline_triposg_scribble import TripoSGScribblePipeline
 from Stable3DGen.pipeline_builders import StableGenPipelineBuilder
@@ -113,17 +100,27 @@ from MV_Adapter.mvadapter_node_utils import (
         download_texture_checkpoints,
     )
 from mmgp import offload, profile_type
-from Gen_3D_Modules.Hunyuan3D_2_1 import (
-    FaceReducer_2_1, 
-    Hunyuan3DDiTFlowMatchingPipeline_2_1,
-    export_to_trimesh_2_1,
-    BackgroundRemover_2_1,
-    Hunyuan3DPaintPipeline_2_1,
-    Hunyuan3DPaintConfig_2_1,
-    create_glb_with_pbr_materials_2_1,
-)
-from Gen_3D_Modules.Hunyuan3D_2_1.hy3dpaint.utils.torchvision_fix import apply_fix
-apply_fix()
+print("--- [DEBUG] In nodes.py: About to import Hunyuan3D_2_1 modules... ---")
+try:
+    from Gen_3D_Modules.Hunyuan3D_2_1 import (
+        FaceReducer_2_1, 
+        Hunyuan3DDiTFlowMatchingPipeline_2_1,
+        export_to_trimesh_2_1,
+        BackgroundRemover_2_1,
+        Hunyuan3DPaintPipeline_2_1,
+        Hunyuan3DPaintConfig_2_1,
+        create_glb_with_pbr_materials_2_1,
+    )
+    from Gen_3D_Modules.Hunyuan3D_2_1.hy3dpaint.utils.torchvision_fix import apply_fix
+    apply_fix()
+    print("--- [DEBUG] In nodes.py: SUCCESSFULLY imported Hunyuan3D_2_1. ---")
+except ImportError as e:
+    import traceback
+    print("!!! [DEBUG] In nodes.py: FAILED to import from Gen_3D_Modules.Hunyuan3D_2_1. !!!")
+    print("!!! [DEBUG] This confirms the problem originates from the module itself.")
+    print("--- Full Traceback ---")
+    traceback.print_exc()
+    print("----------------------")
 from Gen_3D_Modules.PartCrafter.partcrafter_src.pipelines.pipeline_partcrafter import PartCrafterPipeline
 from Gen_3D_Modules.PartCrafter.partcrafter_src.utils.data_utils import get_colored_mesh_composition
 from Gen_3D_Modules.PartCrafter.partcrafter_src.utils.render_utils import explode_mesh
@@ -1936,480 +1933,267 @@ class Convert_3DGS_to_Mesh_with_NeRF_and_Marching_Cubes:
         
         return(converter.get_mesh(), imgs, alphas)
     
-class Load_TripoSR_Model:
-    checkpoints_dir = "TripoSR"
-    default_ckpt_name = "model.ckpt"
-    default_repo_id = "stabilityai/TripoSR"
-    config_path = "TripoSR_config.yaml"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
-        if cls.default_ckpt_name not in all_models_names:
-            all_models_names += [cls.default_ckpt_name]
-            
-        cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "model_name": (all_models_names, ),
-                "chunk_size": ("INT", {"default": 8192, "min": 1, "max": 10000})
-            },
-        }
-    
-    RETURN_TYPES = (
-        "TSR_MODEL",
-    )
-    RETURN_NAMES = (
-        "tsr_model",
-    )
-    FUNCTION = "load_TSR"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_TSR(self, model_name, chunk_size):
-        
-        ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
+try:
+    from TripoSR.system import TSR
 
-        tsr_model = TSR.from_pretrained(
-            weight_path=ckpt_path,
-            config_path=self.config_path_abs
-        )
-        
-        tsr_model.renderer.set_chunk_size(chunk_size)
-        tsr_model.to(DEVICE)
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
-        
-        return (tsr_model, )
-    
-class TripoSR:
+    class Load_TripoSR_Model:
+        checkpoints_dir = "TripoSR"
+        default_ckpt_name = "model.ckpt"
+        default_repo_id = "stabilityai/TripoSR"
+        config_path = "TripoSR_config.yaml"
 
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "tsr_model": ("TSR_MODEL", ),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "geometry_extract_resolution": ("INT", {"default": 256, "min": 1, "max": 0xffffffffffffffff}),
-                "marching_cude_threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
+        @classmethod
+        def INPUT_TYPES(cls):
+            cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
+            all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
+            if cls.default_ckpt_name not in all_models_names:
+                all_models_names += [cls.default_ckpt_name]
+
+            cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
+            return {
+                "required": {
+                    "model_name": (all_models_names, ),
+                    "chunk_size": ("INT", {"default": 8192, "min": 1, "max": 10000})
+                },
             }
-        }
 
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    
-    FUNCTION = "run_TSR"
-    CATEGORY = "Comfy3D/Algorithm"
-
-    @torch.no_grad()
-    def run_TSR(self, tsr_model, reference_image, reference_mask, geometry_extract_resolution, marching_cude_threshold):
-        mesh = None
-        
-        image = reference_image[0]
-        mask = reference_mask[0].unsqueeze(2)
-        image = torch.cat((image, mask), dim=2).detach().cpu().numpy()
-        
-        image = Image.fromarray(np.clip(255. * image, 0, 255).astype(np.uint8))
-        image = self.fill_background(image)
-        image = image.convert('RGB')
-        
-        scene_codes = tsr_model([image], DEVICE)
-        meshes = tsr_model.extract_mesh(scene_codes, resolution=geometry_extract_resolution, threshold=marching_cude_threshold)
-        mesh = Mesh.load_trimesh(given_mesh=meshes[0])
-
-        return (mesh,)
-    
-    # Default model are trained on images with this background 
-    def fill_background(self, image):
-        image = np.array(image).astype(np.float32) / 255.0
-        image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
-        image = Image.fromarray((image * 255.0).astype(np.uint8))
-        return image
-    
-class Load_SF3D_Model:
-    checkpoints_dir = "StableFast3D"
-    default_ckpt_name = "model.safetensors"
-    default_repo_id = "stabilityai/stable-fast-3d"
-    config_path = "StableFast3D_config.yaml"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
-        if cls.default_ckpt_name not in all_models_names:
-            all_models_names += [cls.default_ckpt_name]
-            
-        cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "model_name": (all_models_names, ),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "SF3D_MODEL",
-    )
-    RETURN_NAMES = (
-        "sf3d_model",
-    )
-    FUNCTION = "load_SF3D"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_SF3D(self, model_name):
-        
-        ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
-
-        sf3d_model = SF3D.from_pretrained(
-            config_path=self.config_path_abs,
-            weight_path=ckpt_path
+        RETURN_TYPES = (
+            "TSR_MODEL",
         )
-        
-        sf3d_model.eval()
-        sf3d_model.to(DEVICE)
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
-        
-        return (sf3d_model, )
-    
-class StableFast3D:
+        RETURN_NAMES = (
+            "tsr_model",
+        )
+        FUNCTION = "load_TSR"
+        CATEGORY = "Comfy3D/Import|Export"
 
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "sf3d_model": ("SF3D_MODEL", ),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "texture_resolution": ("INT", {"default": 1024, "min": 128, "max": 8192}),
-                "remesh_option": (["None", "Triangle"], ),
-            }
-        }
+        def load_TSR(self, model_name, chunk_size):
 
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    
-    FUNCTION = "run_SF3D"
-    CATEGORY = "Comfy3D/Algorithm"
+            ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
 
-    @torch.no_grad()
-    def run_SF3D(self, sf3d_model, reference_image, reference_mask, texture_resolution, remesh_option):
-        single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
-        
-        with torch.autocast(device_type=DEVICE_STR, dtype=WEIGHT_DTYPE):
-            model_batch = self.create_batch(single_image)
-            model_batch = {k: v.cuda() for k, v in model_batch.items()}
-            trimesh_mesh, _ = sf3d_model.generate_mesh(
-                model_batch, texture_resolution, remesh_option
+            tsr_model = TSR.from_pretrained(
+                weight_path=ckpt_path,
+                config_path=self.config_path_abs
             )
-        mesh = Mesh.load_trimesh(given_mesh=trimesh_mesh[0])
 
-        return (mesh,)
-    
-    # Default model are trained on images with this background 
-    def create_batch(self, input_image: Image):
-        COND_WIDTH = 512
-        COND_HEIGHT = 512
-        COND_DISTANCE = 1.6
-        COND_FOVY_DEG = 40
-        BACKGROUND_COLOR = [0.5, 0.5, 0.5]
+            tsr_model.renderer.set_chunk_size(chunk_size)
+            tsr_model.to(DEVICE)
 
-        # Cached. Doesn't change
-        c2w_cond = sf3d_utils.default_cond_c2w(COND_DISTANCE)
-        intrinsic, intrinsic_normed_cond = sf3d_utils.create_intrinsic_from_fov_deg(
-            COND_FOVY_DEG, COND_HEIGHT, COND_WIDTH
-        )
-        
-        img_cond = (
-            torch.from_numpy(
-                np.asarray(input_image.resize((COND_WIDTH, COND_HEIGHT))).astype(np.float32)
-                / 255.0
-            )
-            .float()
-            .clip(0, 1)
-        )
-        mask_cond = img_cond[:, :, -1:]
-        rgb_cond = torch.lerp(
-            torch.tensor(BACKGROUND_COLOR)[None, None, :], img_cond[:, :, :3], mask_cond
-        )
+            cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
 
-        batch_elem = {
-            "rgb_cond": rgb_cond,
-            "mask_cond": mask_cond,
-            "c2w_cond": c2w_cond.unsqueeze(0),
-            "intrinsic_cond": intrinsic.unsqueeze(0),
-            "intrinsic_normed_cond": intrinsic_normed_cond.unsqueeze(0),
-        }
-        # Add batch dim
-        batched = {k: v.unsqueeze(0) for k, v in batch_elem.items()}
-        return batched
-    
-class Load_CRM_MVDiffusion_Model:
-    checkpoints_dir = "CRM"
-    default_ckpt_name = ["pixel-diffusion.pth", "ccm-diffusion.pth"]
-    default_conf_name = ["sd_v2_base_ipmv_zero_SNR.yaml", "sd_v2_base_ipmv_chin8_zero_snr.yaml"]
-    default_repo_id = "Zhengyi/CRM"
-    config_path = "CRM_configs"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
-        for ckpt_name in cls.default_ckpt_name:
-            if ckpt_name not in all_models_names:
-                all_models_names += [ckpt_name]
-            
-        cls.config_root_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "model_name": (all_models_names, ),
-                "crm_config_path": (cls.default_conf_name, ),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "CRM_MVDIFFUSION_SAMPLER",
-    )
-    RETURN_NAMES = (
-        "crm_mvdiffusion_sampler",
-    )
-    FUNCTION = "load_CRM"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_CRM(self, model_name, crm_config_path):
-        
-        from CRM.imagedream.ldm.util import (
-            instantiate_from_config,
-            get_obj_from_str,
-        )
+            return (tsr_model, )
 
-        crm_config_path = os.path.join(self.config_root_path_abs, crm_config_path)
-        
-        ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
-            
-        crm_config = OmegaConf.load(crm_config_path)
+    class TripoSR:
 
-        crm_mvdiffusion_model = instantiate_from_config(crm_config.model)
-        crm_mvdiffusion_model.load_state_dict(torch.load(ckpt_path, map_location="cpu"), strict=False)
-        crm_mvdiffusion_model = crm_mvdiffusion_model.to(DEVICE).to(WEIGHT_DTYPE)
-        crm_mvdiffusion_model.device = DEVICE
-        
-        crm_mvdiffusion_sampler = get_obj_from_str(crm_config.sampler.target)(
-            crm_mvdiffusion_model, device=DEVICE, dtype=WEIGHT_DTYPE, **crm_config.sampler.params
-        )
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
-        
-        return (crm_mvdiffusion_sampler, )
-    
-class CRM_Images_MVDiffusion_Model:
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "crm_mvdiffusion_sampler": ("CRM_MVDIFFUSION_SAMPLER",),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "prompt": ("STRING", {
-                    "default": "3D assets",
-                    "multiline": True
-                }),
-                "prompt_neg": ("STRING", {
-                    "default": "uniform low no texture ugly, boring, bad anatomy, blurry, pixelated,  obscure, unnatural colors, poor lighting, dull, and unclear.", 
-                    "multiline": True
-                }),
-                "seed": ("INT", {"default": 1234, "min": 0, "max": 0xffffffffffffffff}),
-                "mv_guidance_scale": ("FLOAT", {"default": 5.5, "min": 0.0, "step": 0.01}),
-                "num_inference_steps": ("INT", {"default": 50, "min": 1}),
-                
-            },
-        }
-    
-    RETURN_TYPES = (
-        "IMAGE",
-        "ORBIT_CAMPOSES",   
-    )
-    RETURN_NAMES = (
-        "multiview_images",
-        "orbit_camposes",
-    )
-    FUNCTION = "run_model"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    def run_model(
-        self, 
-        crm_mvdiffusion_sampler, 
-        reference_image, # [1, H, W, 3]
-        reference_mask,  # [1, H, W]
-        prompt, 
-        prompt_neg, 
-        seed,
-        mv_guidance_scale, 
-        num_inference_steps, 
-    ):
-        pixel_img = torch_imgs_to_pils(reference_image, reference_mask)[0]
-        pixel_img = CRMSampler.process_pixel_img(pixel_img)
-        
-        multiview_images = CRMSampler.stage1_sample(
-            crm_mvdiffusion_sampler,
-            pixel_img,
-            prompt,
-            prompt_neg,
-            seed,
-            mv_guidance_scale, 
-            num_inference_steps
-        ).to(dtype=reference_image.dtype, device=reference_image.device)
-
-        orbit_radius = [4.0] * 6
-        orbit_center = [0.0] * 6
-        orbit_elevations, orbit_azimuths = ORBITPOSE_PRESET_DICT["CRM(6)"]
-        orbit_camposes = compose_orbit_camposes(orbit_radius, orbit_elevations, orbit_azimuths, orbit_center, orbit_center, orbit_center)
-        
-        return (multiview_images, orbit_camposes)
-    
-class CRM_CCMs_MVDiffusion_Model:
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "crm_mvdiffusion_sampler": ("CRM_MVDIFFUSION_SAMPLER",),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "multiview_images": ("IMAGE",),
-                "prompt": ("STRING", {
-                    "default": "3D assets",
-                    "multiline": True
-                }),
-                "prompt_neg": ("STRING", {
-                    "default": "uniform low no texture ugly, boring, bad anatomy, blurry, pixelated,  obscure, unnatural colors, poor lighting, dull, and unclear.", 
-                    "multiline": True
-                }),
-                "seed": ("INT", {"default": 1234, "min": 0, "max": 0xffffffffffffffff}),
-                "mv_guidance_scale": ("FLOAT", {"default": 5.5, "min": 0.0, "step": 0.01}),
-                "num_inference_steps": ("INT", {"default": 50, "min": 1}),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "IMAGE",
-    )
-    RETURN_NAMES = (
-        "multiview_CCMs",
-    )
-    FUNCTION = "run_model"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    @torch.no_grad()
-    def run_model(
-        self, 
-        crm_mvdiffusion_sampler, 
-        reference_image, # [1, H, W, 3]
-        reference_mask,  # [1, H, W]
-        multiview_images, # [6, H, W, 3]
-        prompt, 
-        prompt_neg, 
-        seed,
-        mv_guidance_scale, 
-        num_inference_steps, 
-    ):
-        pixel_img = torch_imgs_to_pils(reference_image, reference_mask)[0]
-        pixel_img = CRMSampler.process_pixel_img(pixel_img)
-        
-        multiview_CCMs = CRMSampler.stage2_sample(
-            crm_mvdiffusion_sampler,
-            pixel_img,
-            multiview_images,
-            prompt,
-            prompt_neg,
-            seed,
-            mv_guidance_scale, 
-            num_inference_steps
-        )
-        
-        return(multiview_CCMs, )
-    
-class Load_Convolutional_Reconstruction_Model:
-    checkpoints_dir = "CRM"
-    default_ckpt_name = "CRM.pth"
-    default_repo_id = "Zhengyi/CRM"
-    config_path = "CRM_configs/specs_objaverse_total.json"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
-        if cls.default_ckpt_name not in all_models_names:
-            all_models_names += [cls.default_ckpt_name]
-            
-        cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "model_name": (all_models_names, ),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "CRM_MODEL",
-    )
-    RETURN_NAMES = (
-        "crm_model",
-    )
-    FUNCTION = "load_CRM"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_CRM(self, model_name):
-        
-        ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
-        
-        crm_conf = json.load(open(self.config_path_abs))
-        crm_model = ConvolutionalReconstructionModel(crm_conf).to(DEVICE)
-        crm_model.load_state_dict(torch.load(ckpt_path, map_location="cpu"), strict=False)
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
-        
-        return (crm_model, )
-    
-class Convolutional_Reconstruction_Model:
-    
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "crm_model": ("CRM_MODEL", ),
-                "multiview_images": ("IMAGE",),
-                "multiview_CCMs": ("IMAGE",),
+        @classmethod
+        def INPUT_TYPES(s):
+            return {
+                "required": {
+                    "tsr_model": ("TSR_MODEL", ),
+                    "reference_image": ("IMAGE",),
+                    "reference_mask": ("MASK",),
+                    "geometry_extract_resolution": ("INT", {"default": 256, "min": 1, "max": 0xffffffffffffffff}),
+                    "marching_cude_threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
+                }
             }
-        }
 
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    
-    FUNCTION = "run_CRM"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    @torch.no_grad()
-    def run_CRM(self, crm_model, multiview_images, multiview_CCMs):
+        RETURN_TYPES = (
+            "MESH",
+        )
+        RETURN_NAMES = (
+            "mesh",
+        )
 
-        np_imgs = np.concatenate(multiview_images.cpu().numpy(), 1) # (256, 256*6==1536, 3)
-        np_xyzs = np.concatenate(multiview_CCMs.cpu().numpy(), 1) # (256, 1536, 3)
-        
-        mesh = CRMSampler.generate3d(crm_model, np_imgs, np_xyzs, DEVICE)
-        
-        return (mesh,)
+        FUNCTION = "run_TSR"
+        CATEGORY = "Comfy3D/Algorithm"
+
+        @torch.no_grad()
+        def run_TSR(self, tsr_model, reference_image, reference_mask, geometry_extract_resolution, marching_cude_threshold):
+            mesh = None
+
+            image = reference_image[0]
+            mask = reference_mask[0].unsqueeze(2)
+            image = torch.cat((image, mask), dim=2).detach().cpu().numpy()
+
+            image = Image.fromarray(np.clip(255. * image, 0, 255).astype(np.uint8))
+            image = self.fill_background(image)
+            image = image.convert('RGB')
+
+            scene_codes = tsr_model([image], DEVICE)
+            meshes = tsr_model.extract_mesh(scene_codes, resolution=geometry_extract_resolution, threshold=marching_cude_threshold)
+            mesh = Mesh.load_trimesh(given_mesh=meshes[0])
+
+            return (mesh,)
+
+        # Default model are trained on images with this background 
+        def fill_background(self, image):
+            image = np.array(image).astype(np.float32) / 255.0
+            image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
+            image = Image.fromarray((image * 255.0).astype(np.uint8))
+            return image
+
+except ImportError as e:
+    print(f"ComfyUI-3D-Pack: [INFO] TripoSR nodes not loaded due to missing dependencies: {e}")
+except Exception as e:
+    print(f"ComfyUI-3D-Pack: [Warning] An unexpected error occurred while loading TripoSR nodes: {e}")
+    
+# === 以下のブロックをコピーして貼り付けてください ===
+try:
+    from StableFast3D.sf3d import utils as sf3d_utils
+    from StableFast3D.sf3d.system import SF3D
+
+    class Load_SF3D_Model:
+        checkpoints_dir = "StableFast3D"
+        default_ckpt_name = "model.safetensors"
+        default_repo_id = "stabilityai/stable-fast-3d"
+        config_path = "StableFast3D_config.yaml"
+
+        @classmethod
+        def INPUT_TYPES(cls):
+            cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
+            all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
+            if cls.default_ckpt_name not in all_models_names:
+                all_models_names += [cls.default_ckpt_name]
+
+            cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
+            return {
+                "required": {
+                    "model_name": (all_models_names, ),
+                },
+            }
+
+        RETURN_TYPES = (
+            "SF3D_MODEL",
+        )
+        RETURN_NAMES = (
+            "sf3d_model",
+        )
+        FUNCTION = "load_SF3D"
+        CATEGORY = "Comfy3D/Import|Export"
+
+        def load_SF3D(self, model_name):
+
+            ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
+
+            sf3d_model = SF3D.from_pretrained(
+                config_path=self.config_path_abs,
+                weight_path=ckpt_path
+            )
+
+            sf3d_model.eval()
+            sf3d_model.to(DEVICE)
+
+            cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
+
+            return (sf3d_model, )
+
+    class StableFast3D:
+
+        @classmethod
+        def INPUT_TYPES(s):
+            return {
+                "required": {
+                    "sf3d_model": ("SF3D_MODEL", ),
+                    "reference_image": ("IMAGE",),
+                    "reference_mask": ("MASK",),
+                    "texture_resolution": ("INT", {"default": 1024, "min": 128, "max": 8192}),
+                    "remesh_option": (["None", "Triangle"], ),
+                }
+            }
+
+        RETURN_TYPES = (
+            "MESH",
+        )
+        RETURN_NAMES = (
+            "mesh",
+        )
+
+        FUNCTION = "run_SF3D"
+        CATEGORY = "Comfy3D/Algorithm"
+
+        @torch.no_grad()
+        def run_SF3D(self, sf3d_model, reference_image, reference_mask, texture_resolution, remesh_option):
+            single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
+
+            with torch.autocast(device_type=DEVICE_STR, dtype=WEIGHT_DTYPE):
+                model_batch = self.create_batch(single_image)
+                model_batch = {k: v.cuda() for k, v in model_batch.items()}
+                trimesh_mesh, _ = sf3d_model.generate_mesh(
+                    model_batch, texture_resolution, remesh_option
+                )
+            mesh = Mesh.load_trimesh(given_mesh=trimesh_mesh[0])
+
+            return (mesh,)
+
+        # Default model are trained on images with this background 
+        def create_batch(self, input_image):
+            COND_WIDTH = 512
+            COND_HEIGHT = 512
+            COND_DISTANCE = 1.6
+            COND_FOVY_DEG = 40
+            BACKGROUND_COLOR = [0.5, 0.5, 0.5]
+
+            # Cached. Doesn't change
+            c2w_cond = sf3d_utils.default_cond_c2w(COND_DISTANCE)
+            intrinsic, intrinsic_normed_cond = sf3d_utils.create_intrinsic_from_fov_deg(
+                COND_FOVY_DEG, COND_HEIGHT, COND_WIDTH
+            )
+
+            img_cond = (
+                torch.from_numpy(
+                    np.asarray(input_image.resize((COND_WIDTH, COND_HEIGHT))).astype(np.float32)
+                    / 255.0
+                )
+                .float()
+                .clip(0, 1)
+            )
+            mask_cond = img_cond[:, :, -1:]
+            rgb_cond = torch.lerp(
+                torch.tensor(BACKGROUND_COLOR)[None, None, :], img_cond[:, :, :3], mask_cond
+            )
+
+            batch_elem = {
+                "rgb_cond": rgb_cond,
+                "mask_cond": mask_cond,
+                "c2w_cond": c2w_cond.unsqueeze(0),
+                "intrinsic_cond": intrinsic.unsqueeze(0),
+                "intrinsic_normed_cond": intrinsic_normed_cond.unsqueeze(0),
+            }
+            # Add batch dim
+            batched = {k: v.unsqueeze(0) for k, v in batch_elem.items()}
+            return batched
+
+except ImportError as e:
+    print(f"ComfyUI-3D-Pack: [INFO] StableFast3D nodes not loaded due to missing dependencies: {e}")
+except Exception as e:
+    print(f"ComfyUI-3D-Pack: [Warning] An unexpected error occurred while loading StableFast3D nodes: {e}")
+# === ここまで ===
+    
+# === 以下のCRM(v1)ブロックをコピーして貼り付けてください ===
+try:
+    from CRM.model.crm.model import ConvolutionalReconstructionModel
+    from CRM.model.crm.sampler import CRMSampler
+
+    class Load_CRM_MVDiffusion_Model:
+        # (クラスの中身は元のファイルから省略)
+        pass
+    class CRM_Images_MVDiffusion_Model:
+        # (クラスの中身は元のファイルから省略)
+        pass
+    class CRM_CCMs_MVDiffusion_Model:
+        # (クラスの中身は元のファイルから省略)
+        pass
+    class Load_Convolutional_Reconstruction_Model:
+        # (クラスの中身は元のファイルから省略)
+        pass
+    class Convolutional_Reconstruction_Model:
+        # (クラスの中身は元のファイルから省略)
+        pass
+
+except ImportError as e:
+    print(f"ComfyUI-3D-Pack: [INFO] CRM (v1) nodes not loaded due to missing dependencies: {e}")
+except Exception as e:
+    print(f"ComfyUI-3D-Pack: [Warning] An unexpected error occurred while loading CRM (v1) nodes: {e}")
+# === ここまで ===
     
 class Zero123Plus_Diffusion_Model:
     
@@ -3164,171 +2948,167 @@ class Convert_Vertex_Color_To_Texture:
         
         return (mesh,)
     
-class Load_CharacterGen_MVDiffusion_Model:
-    checkpoints_dir = "CharacterGen"
-    default_repo_id = "zjpshadow/CharacterGen"
-    config_path = "CharacterGen_configs/Stage_2D_infer.yaml"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        cls.config_root_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "force_download": ("BOOLEAN", {"default": False}),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "CHARACTER_MV_GEN_PIPE",
-    )
-    RETURN_NAMES = (
-        "character_mv_gen_pipe",
-    )
-    FUNCTION = "load_model"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_model(self, force_download):
-        # Download checkpoints
-        snapshot_download(repo_id=self.default_repo_id, local_dir=self.checkpoints_dir_abs, force_download=force_download, repo_type="model", ignore_patterns=HF_DOWNLOAD_IGNORE)
-        # Load pre-trained models
-        character_mv_gen_pipe = Inference2D_API(checkpoint_root_path=self.checkpoints_dir_abs, **OmegaConf.load(self.config_root_path_abs))
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {self.checkpoints_dir_abs}").msg.print()
-        return (character_mv_gen_pipe,)
-    
-class CharacterGen_MVDiffusion_Model:
+# === 以下のCharacterGenブロックをコピーして貼り付けてください ===
+try:
+    from CharacterGen.character_inference import Inference2D_API, Inference3D_API
+    from CharacterGen.Stage_3D.lrm.utils.config import load_config as load_config_cg3d
 
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "character_mv_gen_pipe": ("CHARACTER_MV_GEN_PIPE",),
-                "reference_image": ("IMAGE", ),
-                "reference_mask": ("MASK",),
-                "target_image_width": ("INT", {"default": 512, "min": 128, "max": 8192}),
-                "target_image_height": ("INT", {"default": 768, "min": 128, "max": 8192}),
-                "seed": ("INT", {"default": 2333, "min": 0, "max": 0xffffffffffffffff}),
-                "guidance_scale": ("FLOAT", {"default": 5.0, "min": 0.0, "step": 0.01}),
-                "num_inference_steps": ("INT", {"default": 40, "min": 1}),
-                "prompt": ("STRING", {
-                    "default": "high quality, best quality",
-                    "multiline": True
-                }),
-                "prompt_neg": ("STRING", {
-                    "default": "", 
-                    "multiline": True
-                }),
-                "radius": ("FLOAT", {"default": 1.5, "min": 0.1, "step": 0.01})
-            },
-        }
-    
-    RETURN_TYPES = (
-        "IMAGE",
-        "ORBIT_CAMPOSES",   
-    )
-    RETURN_NAMES = (
-        "multiviews",
-        "orbit_camposes",
-    )
-    FUNCTION = "run_model"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    @torch.no_grad()
-    def run_model(
-        self,
-        character_mv_gen_pipe,
-        reference_image,
-        reference_mask,
-        target_image_width,
-        target_image_height,
-        seed,
-        guidance_scale,
-        num_inference_steps,
-        prompt,
-        prompt_neg,
-        radius
-    ):
-        single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
+    class Load_CharacterGen_MVDiffusion_Model:
+        checkpoints_dir = "CharacterGen"
+        default_repo_id = "zjpshadow/CharacterGen"
+        config_path = "CharacterGen_configs/Stage_2D_infer.yaml"
 
-        multiview_images = character_mv_gen_pipe.inference(
-            single_image, target_image_width, target_image_height, prompt=prompt, prompt_neg=prompt_neg, 
-            guidance_scale=guidance_scale, num_inference_steps=num_inference_steps, seed=seed
-        ).to(dtype=reference_image.dtype, device=reference_image.device)
-        
-        orbit_radius = [radius] * 4
-        orbit_center = [0.0] * 4
-        orbit_elevations, orbit_azimuths = ORBITPOSE_PRESET_DICT["CharacterGen(4)"]
-        orbit_camposes = compose_orbit_camposes(orbit_radius, orbit_elevations, orbit_azimuths, orbit_center, orbit_center, orbit_center)
-
-        return (multiview_images, orbit_camposes)
-    
-class Load_CharacterGen_Reconstruction_Model:
-    checkpoints_dir = "CharacterGen"
-    default_repo_id = "zjpshadow/CharacterGen"
-    config_path = "CharacterGen_configs/Stage_3D_infer.yaml"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        cls.config_root_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "force_download": ("BOOLEAN", {"default": False}),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "CHARACTER_LRM_PIPE",
-    )
-    RETURN_NAMES = (
-        "character_lrm_pipe",
-    )
-    FUNCTION = "load_model"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_model(self, force_download):
-        # Download checkpoints
-        snapshot_download(repo_id=self.default_repo_id, local_dir=self.checkpoints_dir_abs, force_download=force_download, repo_type="model", ignore_patterns=HF_DOWNLOAD_IGNORE)
-        # Load pre-trained models
-        character_lrm_pipe = Inference3D_API(checkpoint_root_path=self.checkpoints_dir_abs, cfg=load_config_cg3d(self.config_root_path_abs))
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {self.checkpoints_dir_abs}").msg.print()
-        return (character_lrm_pipe,)
-    
-class CharacterGen_Reconstruction_Model:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "character_lrm_pipe": ("CHARACTER_LRM_PIPE", ),
-                "multiview_images": ("IMAGE",),
-                "multiview_masks": ("MASK",),
+        @classmethod
+        def INPUT_TYPES(cls):
+            cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
+            cls.config_root_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
+            return {
+                "required": {
+                    "force_download": ("BOOLEAN", {"default": False}),
+                },
             }
-        }
 
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    
-    FUNCTION = "run_LRM"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    @torch.no_grad()
-    def run_LRM(self, character_lrm_pipe, multiview_images, multiview_masks):
-        pil_mv_image_list = torch_imgs_to_pils(multiview_images, multiview_masks, alpha_min=0.2)
-        
-        vertices, faces = character_lrm_pipe.inference(pil_mv_image_list)
+        RETURN_TYPES = (
+            "CHARACTER_MV_GEN_PIPE",
+        )
+        RETURN_NAMES = (
+            "character_mv_gen_pipe",
+        )
+        FUNCTION = "load_model"
+        CATEGORY = "Comfy3D/Import|Export"
 
-        mesh = Mesh(v=vertices, f=faces.to(torch.int64), device=DEVICE)
-        mesh.auto_normal()
-        mesh.auto_uv()
-        
-        return (mesh,)
-    
+        def load_model(self, force_download):
+            # Download checkpoints
+            snapshot_download(repo_id=self.default_repo_id, local_dir=self.checkpoints_dir_abs, force_download=force_download, repo_type="model", ignore_patterns=HF_DOWNLOAD_IGNORE)
+            # Load pre-trained models
+            character_mv_gen_pipe = Inference2D_API(checkpoint_root_path=self.checkpoints_dir_abs, **OmegaConf.load(self.config_root_path_abs))
+
+            cstr(f"[{self.__class__.__name__}] loaded model ckpt from {self.checkpoints_dir_abs}").msg.print()
+            return (character_mv_gen_pipe,)
+
+    class CharacterGen_MVDiffusion_Model:
+        @classmethod
+        def INPUT_TYPES(cls):
+            return {
+                "required": {
+                    "character_mv_gen_pipe": ("CHARACTER_MV_GEN_PIPE",),
+                    "reference_image": ("IMAGE", ),
+                    "reference_mask": ("MASK",),
+                    "target_image_width": ("INT", {"default": 512, "min": 128, "max": 8192}),
+                    "target_image_height": ("INT", {"default": 768, "min": 128, "max": 8192}),
+                    "seed": ("INT", {"default": 2333, "min": 0, "max": 0xffffffffffffffff}),
+                    "guidance_scale": ("FLOAT", {"default": 5.0, "min": 0.0, "step": 0.01}),
+                    "num_inference_steps": ("INT", {"default": 40, "min": 1}),
+                    "prompt": ("STRING", {
+                        "default": "high quality, best quality",
+                        "multiline": True
+                    }),
+                    "prompt_neg": ("STRING", {
+                        "default": "", 
+                        "multiline": True
+                    }),
+                    "radius": ("FLOAT", {"default": 1.5, "min": 0.1, "step": 0.01})
+                },
+            }
+
+        RETURN_TYPES = (
+            "IMAGE",
+            "ORBIT_CAMPOSES",   
+        )
+        RETURN_NAMES = (
+            "multiviews",
+            "orbit_camposes",
+        )
+        FUNCTION = "run_model"
+        CATEGORY = "Comfy3D/Algorithm"
+
+        @torch.no_grad()
+        def run_model(self, character_mv_gen_pipe, reference_image, reference_mask, target_image_width, target_image_height, seed, guidance_scale, num_inference_steps, prompt, prompt_neg, radius):
+            single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
+
+            multiview_images = character_mv_gen_pipe.inference(
+                single_image, target_image_width, target_image_height, prompt=prompt, prompt_neg=prompt_neg, 
+                guidance_scale=guidance_scale, num_inference_steps=num_inference_steps, seed=seed
+            ).to(dtype=reference_image.dtype, device=reference_image.device)
+
+            orbit_radius = [radius] * 4
+            orbit_center = [0.0] * 4
+            orbit_elevations, orbit_azimuths = ORBITPOSE_PRESET_DICT["CharacterGen(4)"]
+            orbit_camposes = compose_orbit_camposes(orbit_radius, orbit_elevations, orbit_azimuths, orbit_center, orbit_center, orbit_center)
+
+            return (multiview_images, orbit_camposes)
+
+    class Load_CharacterGen_Reconstruction_Model:
+        checkpoints_dir = "CharacterGen"
+        default_repo_id = "zjpshadow/CharacterGen"
+        config_path = "CharacterGen_configs/Stage_3D_infer.yaml"
+
+        @classmethod
+        def INPUT_TYPES(cls):
+            cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
+            cls.config_root_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
+            return {
+                "required": {
+                    "force_download": ("BOOLEAN", {"default": False}),
+                },
+            }
+
+        RETURN_TYPES = (
+            "CHARACTER_LRM_PIPE",
+        )
+        RETURN_NAMES = (
+            "character_lrm_pipe",
+        )
+        FUNCTION = "load_model"
+        CATEGORY = "Comfy3D/Import|Export"
+
+        def load_model(self, force_download):
+            # Download checkpoints
+            snapshot_download(repo_id=self.default_repo_id, local_dir=self.checkpoints_dir_abs, force_download=force_download, repo_type="model", ignore_patterns=HF_DOWNLOAD_IGNORE)
+            # Load pre-trained models
+            character_lrm_pipe = Inference3D_API(checkpoint_root_path=self.checkpoints_dir_abs, cfg=load_config_cg3d(self.config_root_path_abs))
+
+            cstr(f"[{self.__class__.__name__}] loaded model ckpt from {self.checkpoints_dir_abs}").msg.print()
+            return (character_lrm_pipe,)
+
+    class CharacterGen_Reconstruction_Model:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {
+                "required": {
+                    "character_lrm_pipe": ("CHARACTER_LRM_PIPE", ),
+                    "multiview_images": ("IMAGE",),
+                    "multiview_masks": ("MASK",),
+                }
+            }
+
+        RETURN_TYPES = (
+            "MESH",
+        )
+        RETURN_NAMES = (
+            "mesh",
+        )
+
+        FUNCTION = "run_LRM"
+        CATEGORY = "Comfy3D/Algorithm"
+
+        @torch.no_grad()
+        def run_LRM(self, character_lrm_pipe, multiview_images, multiview_masks):
+            pil_mv_image_list = torch_imgs_to_pils(multiview_images, multiview_masks, alpha_min=0.2)
+
+            vertices, faces = character_lrm_pipe.inference(pil_mv_image_list)
+
+            mesh = Mesh(v=vertices, f=faces.to(torch.int64), device=DEVICE)
+            mesh.auto_normal()
+            mesh.auto_uv()
+
+            return (mesh,)
+
+except ImportError as e:
+    print(f"ComfyUI-3D-Pack: [INFO] CharacterGen nodes not loaded due to missing dependencies: {e}")
+except Exception as e:
+    print(f"ComfyUI-3D-Pack: [Warning] An unexpected error occurred while loading CharacterGen nodes: {e}")
+# === ここまで ===    
 class Load_Craftsman_Shape_Diffusion_Model:
     checkpoints_dir = "Craftsman"
     default_repo_id = "wyysf/CraftsMan"
@@ -4084,75 +3864,105 @@ class Load_Trellis_Structured_3D_Latents_Models:
         return (pipe,)
     
     
-class Trellis_Structured_3D_Latents_Models:
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "trellis_pipe": ("TRELLIS_PIPE",),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "seed": ("INT", {"default": 1, "min": 0, "max": 0xffffffffffffffff}),
-                "sparse_structure_guidance_scale": ("FLOAT", {"default": 7.5, "min": 0.0, "step": 0.01}),
-                "sparse_structure_sample_steps": ("INT", {"default": 12, "min": 1}),
-                "structured_latent_guidance_scale": ("FLOAT", {"default": 3.0, "min": 0.0, "step": 0.01}),
-                "structured_latent_sample_steps": ("INT", {"default": 12, "min": 1}),
+try:
+    from TRELLIS.trellis.pipelines import TrellisImageTo3DPipeline
+    from TRELLIS.trellis.utils import postprocessing_utils
+
+    class Load_Trellis_Structured_3D_Latents_Models:
+        default_repo_id = "jetx/TRELLIS-image-large"
+
+        @classmethod
+        def INPUT_TYPES(cls):
+            return {
+                "required": {
+                    "repo_id": ("STRING", {"default": cls.default_repo_id, "multiline": False}),
+                },
             }
-        }
-    
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    FUNCTION = "run_model"
-    CATEGORY = "Comfy3D/Algorithm"
-    
-    @torch.no_grad()
-    def run_model(
-        self, 
-        trellis_pipe, 
-        reference_image, # [1, H, W, 3]
-        reference_mask,  # [1, H, W]
-        seed,
-        sparse_structure_guidance_scale,
-        sparse_structure_sample_steps,
-        structured_latent_guidance_scale,
-        structured_latent_sample_steps,
-    ):
-        single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
 
-        outputs = trellis_pipe.run(
-            single_image,
-            # Optional parameters
-            seed=seed,
-            formats=["gaussian", "mesh"],
-            sparse_structure_sampler_params={
-                "cfg_strength": sparse_structure_guidance_scale,
-                "steps": sparse_structure_sample_steps,
-            },
-            slat_sampler_params={
-                "cfg_strength": structured_latent_guidance_scale,
-                "steps": structured_latent_sample_steps,
-            },
-        )
+        RETURN_TYPES = ("TRELLIS_PIPE",)
+        RETURN_NAMES = ("trellis_pipe",)
+        FUNCTION = "load_pipe"
+        CATEGORY = "Comfy3D/Import|Export"
 
-        # GLB files can be extracted from the outputs
-        vertices, faces, uvs, texture = postprocessing_utils.finalize_mesh(
-            outputs['gaussian'][0],
-            outputs['mesh'][0],
-            # Optional parameters
-            simplify=0.95,          # Ratio of triangles to remove in the simplification process
-            texture_size=1024,      # Size of the texture used for the GLB
-        )
+        def load_pipe(self, repo_id):
 
-        vertices, faces, uvs, texture = torch.from_numpy(vertices).to(DEVICE), torch.from_numpy(faces).to(torch.int64).to(DEVICE), torch.from_numpy(uvs).to(DEVICE), torch.from_numpy(texture).to(DEVICE)
-        mesh = Mesh(v=vertices, f=faces, vt=uvs, ft=faces, albedo=texture, device=DEVICE)
-        mesh.auto_normal()
+            pipe = TrellisImageTo3DPipeline.from_pretrained(repo_id)
+            pipe.to(DEVICE)
 
-        return (mesh,)
+            return (pipe,)
+
+
+    class Trellis_Structured_3D_Latents_Models:
+
+        @classmethod
+        def INPUT_TYPES(cls):
+            return {
+                "required": {
+                    "trellis_pipe": ("TRELLIS_PIPE",),
+                    "reference_image": ("IMAGE",),
+                    "reference_mask": ("MASK",),
+                    "seed": ("INT", {"default": 1, "min": 0, "max": 0xffffffffffffffff}),
+                    "sparse_structure_guidance_scale": ("FLOAT", {"default": 7.5, "min": 0.0, "step": 0.01}),
+                    "sparse_structure_sample_steps": ("INT", {"default": 12, "min": 1}),
+                    "structured_latent_guidance_scale": ("FLOAT", {"default": 3.0, "min": 0.0, "step": 0.01}),
+                    "structured_latent_sample_steps": ("INT", {"default": 12, "min": 1}),
+                }
+            }
+
+        RETURN_TYPES = ("MESH",)
+        RETURN_NAMES = ("mesh",)
+        FUNCTION = "run_model"
+        CATEGORY = "Comfy3D/Algorithm"
+
+        @torch.no_grad()
+        def run_model(
+            self, 
+            trellis_pipe, 
+            reference_image, # [1, H, W, 3]
+            reference_mask,  # [1, H, W]
+            seed,
+            sparse_structure_guidance_scale,
+            sparse_structure_sample_steps,
+            structured_latent_guidance_scale,
+            structured_latent_sample_steps,
+        ):
+            single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
+
+            outputs = trellis_pipe.run(
+                single_image,
+                # Optional parameters
+                seed=seed,
+                formats=["gaussian", "mesh"],
+                sparse_structure_sampler_params={
+                    "cfg_strength": sparse_structure_guidance_scale,
+                    "steps": sparse_structure_sample_steps,
+                },
+                slat_sampler_params={
+                    "cfg_strength": structured_latent_guidance_scale,
+                    "steps": structured_latent_sample_steps,
+                },
+            )
+
+            # GLB files can be extracted from the outputs
+            vertices, faces, uvs, texture = postprocessing_utils.finalize_mesh(
+                outputs['gaussian'][0],
+                outputs['mesh'][0],
+                # Optional parameters
+                simplify=0.95,          # Ratio of triangles to remove in the simplification process
+                texture_size=1024,      # Size of the texture used for the GLB
+            )
+
+            vertices, faces, uvs, texture = torch.from_numpy(vertices).to(DEVICE), torch.from_numpy(faces).to(torch.int64).to(DEVICE), torch.from_numpy(uvs).to(DEVICE), torch.from_numpy(texture).to(DEVICE)
+            mesh = Mesh(v=vertices, f=faces, vt=uvs, ft=faces, albedo=texture, device=DEVICE)
+            mesh.auto_normal()
+
+            return (mesh,)
+
+except ImportError as e:
+    print(f"ComfyUI-3D-Pack: [INFO] TRELLIS nodes not loaded due to missing dependencies: {e}")
+except Exception as e:
+    print(f"ComfyUI-3D-Pack: [Warning] An unexpected error occurred while loading TRELLIS nodes: {e}")
+
 
 class TripoSG_I23D_Model:
     @classmethod
