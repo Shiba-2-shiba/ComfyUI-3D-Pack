@@ -143,7 +143,7 @@ async function main(filepath="") {
 
         } else if (fileExt == "glb") {
             const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath( 'https://unpkg.com/three@latest/examples/jsm/libs/draco/gltf/' );
+            dracoLoader.setDecoderPath( './' );
             const loader = new GLTFLoader();
             loader.setDRACOLoader( dracoLoader );
 
