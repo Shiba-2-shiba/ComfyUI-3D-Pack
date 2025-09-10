@@ -1,14 +1,14 @@
 import * as THREE from './three.module.js';
 //import { api } from '/scripts/ui/api.ts';
-import {getRGBValue} from '/extensions/ComfyUI-3D-Pack/js/sharedFunctions.js';
+import {getRGBValue} from './sharedFunctions.js';
 
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from './OrbitControls.js';
+import { RoomEnvironment } from './RoomEnvironment.js';
 
-import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
-import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MTLLoader } from './MTLLoader.js';
+import { OBJLoader } from './OBJLoader.js';
+import { GLTFLoader } from './GLTFLoader.js';
+import { DRACOLoader } from './DRACOLoader.js';
 
 const visualizer = document.getElementById("visualizer");
 const container = document.getElementById( 'container' );
