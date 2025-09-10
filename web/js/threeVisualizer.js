@@ -108,7 +108,7 @@ async function main(filepath="") {
 
         const params = new URLSearchParams({
             filename: filepath, // パラメータ名を ComfyUI 標準の 'filename' に変更
-            type: 'input',      // ファイルの種類を指定 (input/output/temp)
+            type: 'output',      // ファイルの種類を指定 (input/output/temp)
             subfolder: ''       // 必要に応じてサブフォルダを指定
         });
         currentURL = url + '/view?' + params.toString();
