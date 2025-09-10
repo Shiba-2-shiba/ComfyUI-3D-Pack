@@ -47,17 +47,29 @@ except Exception as e:
     logger.error(f"Warning: Failed to import mmgp: {e}")
 
 # Import key modules with aliases to avoid conflicts with old Hunyuan3D
-from hy3dshape import FaceReducer as FaceReducer_2_1
-from hy3dshape import FloaterRemover as FloaterRemover_2_1  
-from hy3dshape import DegenerateFaceRemover as DegenerateFaceRemover_2_1
-from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline as Hunyuan3DDiTFlowMatchingPipeline_2_1
-from hy3dshape.pipelines import export_to_trimesh as export_to_trimesh_2_1
-from hy3dshape.rembg import BackgroundRemover as BackgroundRemover_2_1
-from hy3dpaint.textureGenPipeline import Hunyuan3DPaintPipeline as Hunyuan3DPaintPipeline_2_1
-from hy3dpaint.textureGenPipeline import Hunyuan3DPaintConfig as Hunyuan3DPaintConfig_2_1
-from hy3dpaint.convert_utils import create_glb_with_pbr_materials as create_glb_with_pbr_materials_2_1
+print("--- [DEBUG] Attempting to import core Hunyuan3D 2.1 modules (hy3dshape, hy3dpaint)... ---")
+try:
+    from hy3dshape import FaceReducer as FaceReducer_2_1
+    from hy3dshape import FloaterRemover as FloaterRemover_2_1  
+    from hy3dshape import DegenerateFaceRemover as DegenerateFaceRemover_2_1
+    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline as Hunyuan3DDiTFlowMatchingPipeline_2_1
+    from hy3dshape.pipelines import export_to_trimesh as export_to_trimesh_2_1
+    from hy3dshape.rembg import BackgroundRemover as BackgroundRemover_2_1
+    from hy3dpaint.textureGenPipeline import Hunyuan3DPaintPipeline as Hunyuan3DPaintPipeline_2_1
+    from hy3dpaint.textureGenPipeline import Hunyuan3DPaintConfig as Hunyuan3DPaintConfig_2_1
+    from hy3dpaint.convert_utils import create_glb_with_pbr_materials as create_glb_with_pbr_materials_2_1
 
-logger.info("Hunyuan3D-2.1 modules loaded successfully")
+    logger.info("Hunyuan3D-2.1 modules loaded successfully")
+    print("--- [DEBUG] Core Hunyuan3D 2.1 modules imported SUCCESSFULLY. ---")
+
+except Exception as e:
+    import traceback
+    print("!!! [DEBUG] FAILED to import core Hunyuan3D 2.1 modules. This is the root cause. !!!")
+    print("!!! [DEBUG] Error Type:", type(e).__name__)
+    print("!!! [DEBUG] Error Message:", e)
+    print("--- Full Traceback ---")
+    traceback.print_exc()
+    print("----------------------")
 
 # Export modules with safe aliases
 __all__ = [
