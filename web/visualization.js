@@ -1,4 +1,4 @@
-import * as THREE from './three.module.js';
+import { app } from "/scripts/app.js"
 
 class Visualizer {
     constructor(node, container, visualSrc) {
