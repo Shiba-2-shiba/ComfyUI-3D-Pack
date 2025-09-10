@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from './three.module.js';
 //import { api } from '/scripts/ui/api.ts';
 import {getRGBValue} from '/extensions/ComfyUI-3D-Pack/js/sharedFunctions.js';
 
