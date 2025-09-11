@@ -6,21 +6,6 @@
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/threeStyle.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/coloris.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/sharedStyle.css">
-
-		<script type="importmap">
-		{
-			"imports": {
-				"three": "/extensions/ComfyUI-3D-Pack/js/three.module.js",
-				"three/addons/controls/OrbitControls.js": "/extensions/ComfyUI-3D-Pack/js/OrbitControls.js",
-				"three/addons/environments/RoomEnvironment.js": "/extensions/ComfyUI-3D-Pack/js/RoomEnvironment.js",
-				"three/addons/loaders/MTLLoader.js": "/extensions/ComfyUI-3D-Pack/js/MTLLoader.js",
-				"three/addons/loaders/OBJLoader.js": "/extensions/ComfyUI-3D-Pack/js/OBJLoader.js",
-				"three/addons/loaders/GLTFLoader.js": "/extensions/ComfyUI-3D-Pack/js/GLTFLoader.js",
-				"three/addons/loaders/DRACOLoader.js": "/extensions/ComfyUI-3D-Pack/js/DRACOLoader.js"
-			　　"three/addons/utils/BufferGeometryUtils.js": "/extensions/ComfyUI-3D-Pack/js/BufferGeometryUtils.js"
-			}
-		}
-		</script>
 	</head>
 
 	<body>
@@ -34,7 +19,16 @@
 		</div>
 
 		<div id="container">
-			<script id="visualizer" type="module" filepath="" timestamp="" crossorigin src="/extensions/ComfyUI-3D-Pack/js/threeVisualizer.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/three.min.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/OrbitControls.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/RoomEnvironment.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/MTLLoader.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/OBJLoader.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/DRACOLoader.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/GLTFLoader.js"></script>
+			<script src="/extensions/ComfyUI-3D-Pack/js/BufferGeometryUtils.js"></script>
+
+			<script id="visualizer" filepath="" timestamp="" crossorigin src="/extensions/ComfyUI-3D-Pack/js/threeVisualizer.js"></script>
 		</div>
 
 		<script src="/extensions/ComfyUI-3D-Pack/js/coloris.js"></script>
@@ -58,5 +52,4 @@
 		<button type="button" id="download-button">Download</button>
 		<input type="text" id="color-picker" class="coloris" value="rgb(128, 128, 128)"></input>
 	</body>
-
 </html>
