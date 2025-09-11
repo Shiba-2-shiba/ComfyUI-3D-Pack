@@ -1,13 +1,7 @@
-import * as THREE from 'three';
+// import文はすべて削除されています。
+
+// getRGBValueは、sharedFunctions.jsがHTMLで別途読み込まれることを前提とします。
 import {getRGBValue} from './sharedFunctions.js';
-
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-
-import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
-import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 const visualizer = document.getElementById("visualizer");
 const container = document.getElementById( 'container' );
@@ -16,7 +10,7 @@ const progressIndicator = document.getElementById("progress-indicator");
 const colorPicker = document.getElementById("color-picker");
 const downloadButton = document.getElementById("download-button");
 
-const renderer = new THREE.WebGLRenderer( { antialias: true } );
+const renderer = new THREE.WebGLRenderer( { antialisias: true } );
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 container.appendChild( renderer.domElement );
@@ -26,7 +20,8 @@ const pmremGenerator = new THREE.PMREMGenerator( renderer );
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color( 0x000000 );
-scene.environment = pmremGenerator.fromScene( new RoomEnvironment( renderer ), 0.04 ).texture;
+// THREE.RoomEnvironment を使用
+scene.environment = pmremGenerator.fromScene( new THREE.RoomEnvironment( renderer ), 0.04 ).texture;
 
 const ambientLight = new THREE.AmbientLight( 0xffffff , 3.0 );
 
@@ -35,7 +30,8 @@ camera.position.set( 5, 2, 8 );
 const pointLight = new THREE.PointLight( 0xffffff, 15 );
 camera.add( pointLight );
 
-const controls = new OrbitControls( camera, renderer.domElement );
+// THREE.OrbitControls を使用
+const controls = new THREE.OrbitControls( camera, renderer.domElement );
 controls.target.set( 0, 0.5, 0 );
 controls.update();
 controls.enablePan = true;
@@ -106,9 +102,9 @@ async function main(filepath="") {
     if (/^.+\.[a-zA-Z]+$/.test(filepath)){
 
         const params = new URLSearchParams({
-            filename: filepath, // パラメータ名を ComfyUI 標準の 'filename' に変更
-            type: 'output',      // ファイルの種類を指定 (input/output/temp)
-            subfolder: ''       // 必要に応じてサブフォルダを指定
+            filename: filepath,
+            type: 'output',
+            subfolder: ''
         });
         currentURL = url + '/view?' + params.toString();
 
@@ -117,12 +113,14 @@ async function main(filepath="") {
         var filepathNoExt = filepathSplit.join(".");
 
         if (fileExt == "obj"){
-            const loader = new OBJLoader();
+            // THREE.OBJLoader を使用
+            const loader = new THREE.OBJLoader();
 
             var mtlFolderpath = filepath.substring(0, Math.max(filepath.lastIndexOf("/"), filepath.lastIndexOf("\\"))) + "/";
             var mtlFilepath = filepathNoExt.replace(/^.*[\\\/]/, '') + ".mtl";
 
-            const mtlLoader = new MTLLoader();
+            // THREE.MTLLoader を使用
+            const mtlLoader = new THREE.MTLLoader();
             mtlLoader.setPath(url + '/viewfile?' + new URLSearchParams({"filepath": mtlFolderpath}));
             mtlLoader.load( mtlFilepath, function ( mtl ) {
                 mtl.preload();
@@ -141,14 +139,16 @@ async function main(filepath="") {
             }, onProgress, onError );
 
         } else if (fileExt == "glb") {
-            const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath( './' );
-            const loader = new GLTFLoader();
+            // THREE.DRACOLoader を使用
+            const dracoLoader = new THREE.DRACOLoader();
+            // パスを修正
+            dracoLoader.setDecoderPath( '/extensions/ComfyUI-3D-Pack/js/draco/gltf/' );
+            // THREE.GLTFLoader を使用
+            const loader = new THREE.GLTFLoader();
             loader.setDRACOLoader( dracoLoader );
 
             loader.load( currentURL, function ( gltf ) {
                 const model = gltf.scene;
-                //model.position.set( 1, 1, 0 );
                 model.scale.set( 3, 3, 3 );
 
                 scene.add( model );
@@ -160,9 +160,9 @@ async function main(filepath="") {
             }, onProgress, onError );
 
         } else if (fileExt == "ply") {
-
+            // (PLY ローダーの実装は省略)
         } else {
-            throw new Error(`File extension name has to be either .ply or .splat, got .${fileExt}`);
+            throw new Error(`File extension name has to be either .obj, .glb, or .ply, got .${fileExt}`);
         }
 
         needUpdate = true;
@@ -176,5 +176,4 @@ async function main(filepath="") {
     frameUpdate();
 }
 
-//main("C:/Users/reall/Softwares/ComfyUI_windows_portable/ComfyUI/output/MeshTest/Mesh_01.obj");
 main();
