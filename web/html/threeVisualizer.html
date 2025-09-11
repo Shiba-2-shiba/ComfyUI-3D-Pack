@@ -6,7 +6,21 @@
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/threeStyle.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/coloris.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/sharedStyle.css">
-	</head>
+
+		<script type="importmap">
+		{
+			"imports": {
+				"three": "../js/three.module.js",
+				"three/addons/controls/OrbitControls.js": "../js/OrbitControls.js",
+				"three/addons/environments/RoomEnvironment.js": "../js/RoomEnvironment.js",
+				"three/addons/loaders/MTLLoader.js": "../js/MTLLoader.js",
+				"three/addons/loaders/OBJLoader.js": "../js/OBJLoader.js",
+				"three/addons/loaders/GLTFLoader.js": "../js/GLTFLoader.js",
+				"three/addons/loaders/DRACOLoader.js": "../js/DRACOLoader.js"
+			}
+		}
+		</script>
+		</head>
 
 	<body>
 		<div id="progress-container">
