@@ -83,7 +83,7 @@ function initializeApp() {
     };
     const onError = (e) => console.error("Loader Error:", e);
 
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 START ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 修正箇所 START ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     function loadModel(filepath) {
         console.log(`loadModel() called with original absolute filepath: "${filepath}"`);
         let existingModel = scene.getObjectByName("user_model");
@@ -105,13 +105,26 @@ function initializeApp() {
             const separator = `/${dir}/`;
             if (filepath.includes(separator)) {
                 const parts = filepath.split(separator);
-                const relativePath = parts.pop(); // パスの最後の部分が相対パス
+                const relativePath = parts.pop(); // 例: "Hun2-1/mesh.glb"
+
+                // **ここからが新しいロジック**
+                const lastSlashIndex = relativePath.lastIndexOf('/');
+                let subfolder = '';
+                let filename = relativePath;
+
+                if (lastSlashIndex !== -1) {
+                    // "/"が見つかった場合、それを基準にsubfolderとfilenameを分割
+                    subfolder = relativePath.substring(0, lastSlashIndex);
+                    filename = relativePath.substring(lastSlashIndex + 1);
+                }
+                // **新しいロジックはここまで**
+
                 params = new URLSearchParams({
-                    filename: relativePath,
+                    filename: filename,   // 修正後: "mesh.glb"
                     type: dir,
-                    subfolder: '' // サブフォルダは相対パスに含まれているため空にする
+                    subfolder: subfolder  // 修正後: "Hun2-1"
                 });
-                console.log(`Path converted to relative: filename=${relativePath}, type=${dir}`);
+                console.log(`Path converted to relative: filename=${filename}, subfolder=${subfolder}, type=${dir}`);
                 foundDir = true;
                 break;
             }
@@ -160,7 +173,7 @@ function initializeApp() {
             if(progressDialog) progressDialog.close();
         }
     }
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 END ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 修正箇所 END ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     window.addEventListener("message", (event) => {
         if (event.data && event.data.filepath) {
