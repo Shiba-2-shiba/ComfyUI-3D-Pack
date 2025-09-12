@@ -1,35 +1,38 @@
-// threeVisualizer.js (postMessage & ハンドシェイク対応・完成版)
+console.log("[iframe] threeVisualizer.js script started.");
 
 function initializeApp() {
-    console.log("Three.js is ready. Initializing the application and waiting for messages.");
-    // ... (前回のコードと全く同じ内容をここに記述) ...
+    console.log("[iframe] STEP 2: Dependencies met. Entering initializeApp().");
+
+    console.log("[iframe] STEP 3: Initializing constants and DOM elements...");
+    const visualizer = document.getElementById("visualizer");
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
     const progressIndicator = document.getElementById("progress-indicator");
     const colorPicker = document.getElementById("color-picker");
     const downloadButton = document.getElementById("download-button");
 
+    console.log("[iframe] STEP 4: Setting up THREE.js Renderer...");
     const renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight );
     container.appendChild( renderer.domElement );
 
+    console.log("[iframe] STEP 5: Setting up Scene and Environment...");
     const pmremGenerator = new THREE.PMREMGenerator( renderer );
-
     const scene = new THREE.Scene();
     scene.background = new THREE.Color( 0x000000 );
     scene.environment = pmremGenerator.fromScene( new THREE.RoomEnvironment( renderer ), 0.04 ).texture;
 
+    console.log("[iframe] STEP 6: Setting up Lights and Camera...");
     const ambientLight = new THREE.AmbientLight( 0xffffff , 3.0 );
     scene.add(ambientLight);
-
     const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100 );
     camera.position.set( 5, 2, 8 );
     scene.add(camera);
-
     const pointLight = new THREE.PointLight( 0xffffff, 15 );
     camera.add( pointLight );
 
+    console.log("[iframe] STEP 7: Setting up OrbitControls...");
     const controls = new THREE.OrbitControls( camera, renderer.domElement );
     controls.target.set( 0, 0.5, 0 );
     controls.update();
@@ -42,6 +45,7 @@ function initializeApp() {
         renderer.setSize( window.innerWidth, window.innerHeight );
     };
 
+    console.log("[iframe] STEP 8: Defining functions (animate, loadModel, etc.)...");
     const clock = new THREE.Clock();
     let mixer;
     let currentURL;
@@ -73,15 +77,19 @@ function initializeApp() {
 
     function loadModel(filepath) {
         console.log(`loadModel() called with filepath: "${filepath}"`);
+        
+        // 既存のモデルがあればシーンから削除
         let existingModel = scene.getObjectByName("user_model");
         if (existingModel) {
             scene.remove(existingModel);
         }
+
         if (!filepath || !/^.+\.[a-zA-Z]+$/.test(filepath)) {
             console.log("Filepath is empty or invalid, skipping load.");
             progressDialog.close();
             return;
         }
+
         progressDialog.open = true;
         
         const params = new URLSearchParams({ filename: filepath, type: 'output', subfolder: '' });
@@ -89,18 +97,6 @@ function initializeApp() {
         console.log("Attempting to load model from URL:", currentURL);
         
         const fileExt = filepath.split('.').pop().toLowerCase();
-        const loaderCallback = (modelObject) => {
-            console.log("Model loaded successfully!");
-            modelObject.name = "user_model"; // 名前を付けて後で削除しやすくする
-            const scale = fileExt === 'obj' ? 5 : 3;
-            modelObject.scale.setScalar(scale);
-            scene.add(modelObject);
-            if (fileExt === 'glb' && gltf.animations && gltf.animations.length) { // gltf is not defined here, fixed
-                 mixer = new THREE.AnimationMixer(modelObject);
-                 gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
-            }
-            progressDialog.close();
-        };
 
         if (fileExt === "glb") {
             const dracoLoader = new THREE.DRACOLoader();
@@ -110,9 +106,8 @@ function initializeApp() {
             loader.load(currentURL, (gltf) => {
                  console.log("GLB model loaded successfully!");
                  const model = gltf.scene;
-                 model.name = "user_model";
-                 const scale = 3;
-                 model.scale.setScalar(scale);
+                 model.name = "user_model"; // 名前を付けて後で削除しやすくする
+                 model.scale.setScalar(3);
                  scene.add(model);
                  if (gltf.animations && gltf.animations.length) {
                      mixer = new THREE.AnimationMixer(model);
@@ -125,14 +120,17 @@ function initializeApp() {
             loader.load(currentURL, (obj) => {
                 console.log("OBJ model loaded successfully!");
                 obj.name = "user_model";
-                const scale = 5;
-                obj.scale.setScalar(scale);
+                obj.scale.setScalar(5);
                 scene.add(obj);
                 progressDialog.close();
             }, onProgress, onError);
+        } else {
+            console.error(`Unsupported file extension: .${fileExt}`);
+            progressDialog.close();
         }
     }
 
+    // 親ウィンドウからのメッセージを待機
     window.addEventListener("message", (event) => {
         if (event.data && event.data.filepath) {
             console.log("[iframe] Message received from parent:", event.data);
@@ -140,20 +138,32 @@ function initializeApp() {
         }
     }, false);
 
+
+    console.log("[iframe] STEP 9: Initial setup complete. Starting animation loop.");
     progressDialog.close();
     animate();
 
-    // ★★★ 最後に親ウィンドウへ準備完了を通知 ★★★
+    console.log("[iframe] STEP 10: Reached end of initializeApp(). Preparing to send 'ready' message.");
     window.parent.postMessage({ type: 'iframeReady', status: 'ready' }, '*');
-    console.log("[iframe] Sent 'ready' message to parent.");
+    console.log("[iframe] ✅ Sent 'ready' message to parent.");
 }
 
+
 function waitForThreeJS() {
-    if (typeof THREE !== 'undefined' && THREE.RoomEnvironment && THREE.OrbitControls) {
+    console.log("[iframe] STEP 1: Checking for Three.js dependencies...");
+    const threeLoaded = typeof THREE !== 'undefined';
+    // アドオンの存在もチェック
+    const addonsLoaded = threeLoaded && THREE.RoomEnvironment && THREE.OrbitControls;
+
+    console.log(`[iframe] Status: THREE=${threeLoaded}, Addons=${addonsLoaded}`);
+
+    if (threeLoaded && addonsLoaded) {
         initializeApp();
     } else {
-        setTimeout(waitForThreeJS, 100);
+        // 200ミリ秒後にもう一度チェック
+        setTimeout(waitForThreeJS, 200);
     }
 }
 
+// 初期化プロセスを開始
 waitForThreeJS();
