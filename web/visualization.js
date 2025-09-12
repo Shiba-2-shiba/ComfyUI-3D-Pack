@@ -2,29 +2,40 @@ import { app } from "/scripts/app.js"
 
 class Visualizer {
     constructor(node, container, visualSrc) {
-        this.node = node
+        this.node = node;
+        this.isReady = false; // iframeの準備状態を管理
+        this.pendingFilepath = null; // 保留中のファイルパス
 
-        this.iframe = document.createElement('iframe')
+        this.iframe = document.createElement('iframe');
         Object.assign(this.iframe, {
             scrolling: "no",
             overflow: "hidden",
-        })
-        this.iframe.src = "/extensions/ComfyUI-3D-Pack/html/" + visualSrc + ".html"
-        container.appendChild(this.iframe)
+        });
+        this.iframe.src = "/extensions/ComfyUI-3D-Pack/html/" + visualSrc + ".html";
+        container.appendChild(this.iframe);
+
+        // iframeからの「準備完了」メッセージを待つリスナー
+        window.addEventListener('message', (event) => {
+            if (event.source === this.iframe.contentWindow && event.data.type === 'iframeReady') {
+                console.log('[Comfy3D] Received "ready" message from iframe.');
+                this.isReady = true;
+                // 保留中のファイルパスがあれば、ここで送信
+                if (this.pendingFilepath) {
+                    this.updateVisual(this.pendingFilepath);
+                    this.pendingFilepath = null;
+                }
+            }
+        });
     }
 
-    // ★★★ここを修正★★★
     updateVisual(filepath) {
-        // iframeのコンテンツがロードされるのを待つ
-        if (this.iframe.contentWindow) {
-            console.log(`[Comfy3D] Posting message to iframe with filepath: ${filepath}`);
-            // iframeにファイルパスをメッセージとして送信
-            this.iframe.contentWindow.postMessage({
-                filepath: filepath
-            }, '*'); // '*' はどのオリジンにも送信許可（ローカルなので問題なし）
+        // iframeの準備ができていれば直接送信、できていなければ保留
+        if (this.isReady) {
+            console.log(`[Comfy3D] iframe is ready. Posting message with filepath: ${filepath}`);
+            this.iframe.contentWindow.postMessage({ filepath: filepath }, '*');
         } else {
-            console.warn("[Comfy3D] iframe.contentWindow not ready, retrying...");
-            setTimeout(() => this.updateVisual(filepath), 100);
+            console.log(`[Comfy3D] iframe not ready. Storing pending filepath: ${filepath}`);
+            this.pendingFilepath = filepath;
         }
     }
 
@@ -33,6 +44,8 @@ class Visualizer {
     }
 }
 
+// createVisualizer関数とregisterVisualizer関数は前回のままで変更ありません
+// （ただし、以前のコードをコピー＆ペーストしてください）
 function createVisualizer(node, inputName, typeName, inputData, app) {
     node.name = inputName
 
@@ -81,12 +94,9 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
 
     node.addCustomWidget(widget)
     
-    // ★★★ここを修正★★★
+    // updateParametersからsetTimeoutを削除
     node.updateParameters = (params) => {
-        // iframeがロード完了してからメッセージを送る保証のため、少し待機
-        setTimeout(() => {
-             node.visualizer.updateVisual(params.filepath)
-        }, 100);
+        node.visualizer.updateVisual(params.filepath)
     }
 
     node.onDrawBackground = function (ctx) {
@@ -135,9 +145,8 @@ function registerVisualizer(nodeType, nodeData, nodeClassName, typeName){
 }
 
 app.registerExtension({
-    name: "Mr.ForExample.Visualizer.Mesh", // 拡張機能名を変更
+    name: "Mr.ForExample.Visualizer.Mesh",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        // 登録対象を3DMeshのみに絞る
         if (nodeData.name === "[Comfy3D] Preview 3DMesh") {
              registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DMesh", "threeVisualizer");
         }
