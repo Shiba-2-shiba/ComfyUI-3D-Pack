@@ -1,9 +1,8 @@
-// threeVisualizer.js (デバッグログ追加・完成版)
+// threeVisualizer.js (postMessage対応・完成版)
 
 function initializeApp() {
-    console.log("Three.js is ready. Initializing the application.");
+    console.log("Three.js is ready. Initializing the application and waiting for messages.");
     
-    const visualizer = document.getElementById("visualizer");
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
     const progressIndicator = document.getElementById("progress-indicator");
@@ -22,9 +21,12 @@ function initializeApp() {
     scene.environment = pmremGenerator.fromScene( new THREE.RoomEnvironment( renderer ), 0.04 ).texture;
 
     const ambientLight = new THREE.AmbientLight( 0xffffff , 3.0 );
+    scene.add(ambientLight);
 
     const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100 );
     camera.position.set( 5, 2, 8 );
+    scene.add(camera);
+
     const pointLight = new THREE.PointLight( 0xffffff, 15 );
     camera.add( pointLight );
 
@@ -41,130 +43,126 @@ function initializeApp() {
     };
 
     const clock = new THREE.Clock();
-
-    var lastTimestamp = "";
-    var needUpdate = false;
     let mixer;
     let currentURL;
-    var url = location.protocol + '//' + location.host;
+    const url = location.protocol + '//' + location.host;
 
     downloadButton.addEventListener('click', e => {
-        window.open(currentURL, '_blank');
+        if (currentURL) window.open(currentURL, '_blank');
     });
 
-    function frameUpdate() {
-        var filepath = visualizer.getAttribute("filepath");
-        var timestamp = visualizer.getAttribute("timestamp");
-        if (timestamp == lastTimestamp){
-            if (needUpdate){
-                controls.update();
-                if (mixer !== undefined) {
-                    const delta = clock.getDelta();
-                    mixer.update(delta);
-                }
-                renderer.render( scene, camera );
-            }
-            requestAnimationFrame( frameUpdate );
-        } else {
-            needUpdate = false;
-            scene.clear();
-            progressDialog.open = true;
-            lastTimestamp = timestamp;
-            main(filepath);
+    // 継続的なレンダリングループ
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        if (mixer) {
+            mixer.update(clock.getDelta());
+        }
+        
+        const color = getRGBValue(colorPicker.value, true);
+        if (scene.background.r !== color[0] || scene.background.g !== color[1] || scene.background.b !== color[2]) {
+            scene.background.setRGB(color[0], color[1], color[2]);
         }
 
-        var color = getRGBValue(colorPicker.value, true);
-        if (color[0] != scene.background.r || color[1] != scene.background.g || color[2] != scene.background.b){
-            scene.background.setStyle(colorPicker.value);
-            renderer.render( scene, camera );
-        }
+        renderer.render(scene, camera);
     }
-
-    const onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
+    
+    const onProgress = (xhr) => {
+        if (xhr.lengthComputable) {
             progressIndicator.value = xhr.loaded / xhr.total * 100;
         }
     };
-    const onError = function ( e ) {
-        console.error("Loader Error:", e);
-    };
+    const onError = (e) => console.error("Loader Error:", e);
 
-    async function main(filepath="") {
-        console.log(`main() called with filepath: "${filepath}"`);
+    function loadModel(filepath) {
+        console.log(`loadModel() called with filepath: "${filepath}"`);
 
-        if (/^.+\.[a-zA-Z]+$/.test(filepath)){
-            const params = new URLSearchParams({
-                filename: filepath,
-                type: 'output',
-                subfolder: ''
-            });
-            currentURL = url + '/view?' + params.toString();
-            
-            console.log("Attempting to load model from URL:", currentURL);
-
-            var filepathSplit = filepath.split('.');
-            var fileExt = filepathSplit.pop().toLowerCase();
-            var filepathNoExt = filepathSplit.join(".");
-
-            if (fileExt == "obj"){
-                console.log("Using OBJLoader.");
-                const loader = new THREE.OBJLoader();
-                var mtlFolderpath = filepath.substring(0, Math.max(filepath.lastIndexOf("/"), filepath.lastIndexOf("\\"))) + "/";
-                var mtlFilepath = filepathNoExt.replace(/^.*[\\\/]/, '') + ".mtl";
-                const mtlLoader = new THREE.MTLLoader();
-                mtlLoader.setPath(url + '/viewfile?' + new URLSearchParams({"filepath": mtlFolderpath}));
-                mtlLoader.load( mtlFilepath, function ( mtl ) {
-                    mtl.preload();
-                    loader.setMaterials( mtl );
-                }, onProgress, onError );
-                loader.load( currentURL, function ( obj ) {
-                    console.log("OBJ model loaded successfully!");
-                    obj.scale.setScalar( 5 );
-                    scene.add( obj );
-                    obj.traverse(node => {
-                        if (node.material && node.material.map == null) {
-                            node.material.vertexColors = true;
-                        }
-                    });
-                }, onProgress, onError );
-
-            } else if (fileExt == "glb") {
-                console.log("Using GLTFLoader.");
-                const dracoLoader = new THREE.DRACOLoader();
-                dracoLoader.setDecoderPath( '/extensions/ComfyUI-3D-Pack/js/draco/gltf/' );
-                const loader = new THREE.GLTFLoader();
-                loader.setDRACOLoader( dracoLoader );
-
-                loader.load( currentURL, function ( gltf ) {
-                    console.log("GLB model loaded successfully!", gltf);
-                    const model = gltf.scene;
-                    model.scale.set( 3, 3, 3 );
-                    scene.add( model );
-                    mixer = new THREE.AnimationMixer(model);
-                    gltf.animations.forEach((clip) => {
-                        mixer.clipAction(clip).play();
-                    });
-                }, onProgress, onError );
+        // 前のモデルをクリア
+        while(scene.children.length > 0){ 
+            const child = scene.children[0];
+            if (child.isLight || child.isCamera) {
+                 scene.remove(child); // Keep lights and camera initially added
             } else {
-                 console.error(`Unsupported file extension: .${fileExt}`);
+                scene.remove(child);
             }
-            needUpdate = true;
-        } else {
+        }
+        // 再度ライトとカメラを追加
+        scene.add(ambientLight);
+        scene.add(camera);
+
+        if (!filepath || !/^.+\.[a-zA-Z]+$/.test(filepath)) {
             console.log("Filepath is empty or invalid, skipping load.");
+            progressDialog.close();
+            return;
         }
 
-        scene.add( ambientLight );
-        scene.add( camera );
+        progressDialog.open = true;
         
-        console.log("Closing progress dialog.");
-        progressDialog.close();
+        const params = new URLSearchParams({ filename: filepath, type: 'output', subfolder: '' });
+        currentURL = url + '/view?' + params.toString();
+        console.log("Attempting to load model from URL:", currentURL);
+        
+        const fileExt = filepath.split('.').pop().toLowerCase();
 
-        frameUpdate();
+        const loaderCallback = (modelObject) => {
+            console.log("Model loaded successfully!");
+            const scale = fileExt === 'obj' ? 5 : 3;
+            modelObject.scale.setScalar(scale);
+            scene.add(modelObject);
+
+            if (fileExt === 'glb' && modelObject.animations && modelObject.animations.length) {
+                mixer = new THREE.AnimationMixer(modelObject);
+                modelObject.animations.forEach((clip) => {
+                    mixer.clipAction(clip).play();
+                });
+            }
+            if (fileExt === 'obj') {
+                modelObject.traverse(node => {
+                    if (node.material && node.material.map == null) {
+                        node.material.vertexColors = true;
+                    }
+                });
+            }
+            progressDialog.close();
+        };
+
+        if (fileExt === "glb") {
+            const dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('/extensions/ComfyUI-3D-Pack/js/draco/gltf/');
+            const loader = new THREE.GLTFLoader();
+            loader.setDRACOLoader(dracoLoader);
+            loader.load(currentURL, (gltf) => loaderCallback(gltf.scene), onProgress, onError);
+        } else if (fileExt === "obj") {
+            const mtlPath = filepath.substring(0, filepath.lastIndexOf('.')) + ".mtl";
+            const mtlLoader = new THREE.MTLLoader();
+            mtlLoader.load(mtlPath, (materials) => {
+                materials.preload();
+                const objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.load(currentURL, loaderCallback, onProgress, onError);
+            }, undefined, () => { // MTL not found, load OBJ without materials
+                 const objLoader = new THREE.OBJLoader();
+                 objLoader.load(currentURL, loaderCallback, onProgress, onError);
+            });
+        }
     }
-    
-    main();
+
+    // ★★★ 親ウィンドウからのメッセージを待機 ★★★
+    window.addEventListener("message", (event) => {
+        // 必要であれば送信元のオリジンをチェック
+        // if (event.origin !== "http://example.com") return;
+
+        if (event.data && event.data.filepath) {
+            console.log("[iframe] Message received from parent:", event.data);
+            loadModel(event.data.filepath);
+        }
+    }, false);
+
+    progressDialog.close();
+    animate(); // レンダリングループを開始
 }
 
+// Three.jsの準備が完了するまで待つ
 function waitForThreeJS() {
     if (typeof THREE !== 'undefined' && THREE.RoomEnvironment && THREE.OrbitControls) {
         initializeApp();
