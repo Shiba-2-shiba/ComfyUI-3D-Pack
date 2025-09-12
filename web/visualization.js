@@ -13,13 +13,19 @@ class Visualizer {
         container.appendChild(this.iframe)
     }
 
+    // ★★★ここを修正★★★
     updateVisual(filepath) {
-        const iframeDocument = this.iframe.contentWindow.document
-        const previewScript = iframeDocument.getElementById('visualizer')
-        previewScript.setAttribute("filepath", filepath)
-
-        const timestamp = Date.now().toString()
-        previewScript.setAttribute("timestamp", timestamp)
+        // iframeのコンテンツがロードされるのを待つ
+        if (this.iframe.contentWindow) {
+            console.log(`[Comfy3D] Posting message to iframe with filepath: ${filepath}`);
+            // iframeにファイルパスをメッセージとして送信
+            this.iframe.contentWindow.postMessage({
+                filepath: filepath
+            }, '*'); // '*' はどのオリジンにも送信許可（ローカルなので問題なし）
+        } else {
+            console.warn("[Comfy3D] iframe.contentWindow not ready, retrying...");
+            setTimeout(() => this.updateVisual(filepath), 100);
+        }
     }
 
     remove() {
@@ -74,12 +80,15 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
     document.body.appendChild(widget.visualizer)
 
     node.addCustomWidget(widget)
-
+    
+    // ★★★ここを修正★★★
     node.updateParameters = (params) => {
-        node.visualizer.updateVisual(params.filepath)
+        // iframeがロード完了してからメッセージを送る保証のため、少し待機
+        setTimeout(() => {
+             node.visualizer.updateVisual(params.filepath)
+        }, 100);
     }
 
-    // Events for drawing backgound
     node.onDrawBackground = function (ctx) {
         if (!this.flags.collapsed) {
             node.visualizer.iframe.hidden = false
@@ -88,20 +97,14 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
         }
     }
 
-    // Make sure visualization iframe is always inside the node when resize the node
     node.onResize = function () {
         let [w, h] = this.size
         if (w <= 600) w = 600
         if (h <= 500) h = 500
-
-        if (w > 600) {
-            h = w - 100
-        }
-
+        if (w > 600) { h = w - 100 }
         this.size = [w, h]
     }
 
-    // Events for remove nodes
     node.onRemoved = () => {
         for (let w in node.widgets) {
             if (node.widgets[w].visualizer) {
@@ -110,37 +113,19 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
         }
     }
 
-
-    return {
-        widget: widget,
-    }
+    return { widget: widget }
 }
 
 function registerVisualizer(nodeType, nodeData, nodeClassName, typeName){
     if (nodeData.name == nodeClassName) {
-        console.log("[3D Visualizer] Registering node: " + nodeData.name)
-
         const onNodeCreated = nodeType.prototype.onNodeCreated
-
         nodeType.prototype.onNodeCreated = async function() {
-            const r = onNodeCreated
-                ? onNodeCreated.apply(this, arguments)
-                : undefined
-
-            let Preview3DNode = app.graph._nodes.filter(
-                (wi) => wi.type == nodeClassName
-            )
+            const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined
             let nodeName = `Preview3DNode_${nodeClassName}`
-
-            console.log(`[Comfy3D] Create: ${nodeName}`)
-
-            const result = await createVisualizer.apply(this, [this, nodeName, typeName, {}, app])
-
+            await createVisualizer.apply(this, [this, nodeName, typeName, {}, app])
             this.setSize([600, 500])
-
             return r
         }
-
         nodeType.prototype.onExecuted = async function(message) {
             if (message?.previews) {
                 this.updateParameters(message.previews[0])
@@ -150,14 +135,11 @@ function registerVisualizer(nodeType, nodeData, nodeClassName, typeName){
 }
 
 app.registerExtension({
-    name: "Mr.ForExample.Visualizer.GS",
-
-    async init (app) {
-
-    },
-
+    name: "Mr.ForExample.Visualizer.Mesh", // 拡張機能名を変更
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DGS", "gsVisualizer")
-        registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DMesh", "threeVisualizer")
+        // 登録対象を3DMeshのみに絞る
+        if (nodeData.name === "[Comfy3D] Preview 3DMesh") {
+             registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DMesh", "threeVisualizer");
+        }
     },
 })
