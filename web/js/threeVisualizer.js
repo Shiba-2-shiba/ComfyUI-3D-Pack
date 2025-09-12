@@ -1,5 +1,4 @@
 // [iframe] threeVisualizer.js script started.
-// このログはファイルの先頭に残しておきます
 
 // DOMとすべてのdeferスクリプトの準備が完了してから処理を開始する
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -8,7 +7,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
     // 念のため、THREEオブジェクトの存在を最終確認
     if (typeof THREE === 'undefined') {
         console.error('[iframe] FATAL: THREE.js is not loaded even after DOMContentLoaded.');
-        // ここで処理を中断
         const progressDialog = document.getElementById("progress-dialog");
         if (progressDialog) {
             progressDialog.innerHTML = "<p>Error: Failed to load 3D library.</p>";
@@ -16,7 +14,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         return;
     }
 
-    // 依存関係が解決したので、アプリケーションの初期化を安全に呼び出せる
+    // 依存関係が解決したので、アプリケーションの初期化を安全に呼び出す
     initializeApp();
 });
 
@@ -25,7 +23,6 @@ function initializeApp() {
     console.log("[iframe] STEP 2: Dependencies met. Entering initializeApp().");
 
     console.log("[iframe] STEP 3: Initializing constants and DOM elements...");
-    // visualizerは loadModel でしか使われないため、ここでは不要
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
     const progressIndicator = document.getElementById("progress-indicator");
@@ -38,13 +35,22 @@ function initializeApp() {
     renderer.setSize( window.innerWidth, window.innerHeight );
     container.appendChild( renderer.domElement );
 
-    console.log("[iframe] STEP 5: Setting up Scene and Environment...");
-    const pmremGenerator = new THREE.PMREMGenerator( renderer );
+    console.log("[iframe] STEP 5: Setting up Scene and Lights (Replaced RoomEnvironment)...");
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color( 0x000000 );
-    scene.environment = pmremGenerator.fromScene( new THREE.RoomEnvironment( renderer ), 0.04 ).texture;
+    scene.background = new THREE.Color( 0x000000 ); // 背景色は後でカラーピッカーで変更可能
 
-    console.log("[iframe] STEP 6: Setting up Lights and Camera...");
+    // RoomEnvironmentの代わりに、より安定した標準ライトを使用
+    // HemisphereLight: 空からの光と地面からの反射光をシミュレート
+    const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x8d8d8d, 3 ); // (空の色, 地面の色, 光の強さ)
+    hemiLight.position.set( 0, 20, 0 );
+    scene.add( hemiLight );
+
+    // DirectionalLight: 太陽光のように平行な光。影やハイライトを生み出す
+    const dirLight = new THREE.DirectionalLight( 0xffffff, 3 );
+    dirLight.position.set( 5, 10, 7.5 );
+    scene.add( dirLight );
+
+    console.log("[iframe] STEP 6: Setting up Camera...");
     const ambientLight = new THREE.AmbientLight( 0xffffff , 3.0 );
     scene.add(ambientLight);
     const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100 );
@@ -106,11 +112,11 @@ function initializeApp() {
 
         if (!filepath || !/^.+\.[a-zA-Z]+$/.test(filepath)) {
             console.log("Filepath is empty or invalid, skipping load.");
-            progressDialog.close();
+            if(progressDialog) progressDialog.close();
             return;
         }
 
-        progressDialog.open = true;
+        if(progressDialog) progressDialog.open = true;
         
         const params = new URLSearchParams({ filename: filepath, type: 'output', subfolder: '' });
         currentURL = url + '/view?' + params.toString();
@@ -133,7 +139,7 @@ function initializeApp() {
                      mixer = new THREE.AnimationMixer(model);
                      gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
                  }
-                 progressDialog.close();
+                 if(progressDialog) progressDialog.close();
             }, onProgress, onError);
         } else if (fileExt === "obj") {
             const loader = new THREE.OBJLoader();
@@ -142,11 +148,11 @@ function initializeApp() {
                 obj.name = "user_model";
                 obj.scale.setScalar(5);
                 scene.add(obj);
-                progressDialog.close();
+                if(progressDialog) progressDialog.close();
             }, onProgress, onError);
         } else {
             console.error(`Unsupported file extension: .${fileExt}`);
-            progressDialog.close();
+            if(progressDialog) progressDialog.close();
         }
     }
 
@@ -160,7 +166,7 @@ function initializeApp() {
 
 
     console.log("[iframe] STEP 9: Initial setup complete. Starting animation loop.");
-    progressDialog.close();
+    if(progressDialog) progressDialog.close();
     animate();
 
     console.log("[iframe] STEP 10: Reached end of initializeApp(). Preparing to send 'ready' message.");
