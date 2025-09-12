@@ -1,7 +1,7 @@
 // import文はすべて削除されています。
 
 // getRGBValueは、sharedFunctions.jsがHTMLで別途読み込まれることを前提とします。
-import {getRGBValue} from './sharedFunctions.js';
+// import {getRGBValue} from './sharedFunctions.js';
 
 const visualizer = document.getElementById("visualizer");
 const container = document.getElementById( 'container' );
