@@ -1,6 +1,20 @@
 // import文はすべて削除されています。
 // getRGBValueは、sharedFunctions.jsがHTMLで別途読み込まれることを前提とします。
 
+console.log("--- 3D Visualizer Debug Start ---");
+console.log("threeVisualizer.js script executed.");
+console.log("Checking for THREE object immediately:", typeof THREE);
+
+if (typeof THREE !== 'undefined') {
+    console.log("THREE object exists. Checking for addons...");
+    console.log(" - THREE.RoomEnvironment:", typeof THREE.RoomEnvironment);
+    console.log(" - THREE.OrbitControls:", typeof THREE.OrbitControls);
+} else {
+    console.error("CRITICAL: THREE object is not defined at the moment of execution.");
+}
+console.log("--- 3D Visualizer Debug End ---");
+
+
 const visualizer = document.getElementById("visualizer");
 const container = document.getElementById( 'container' );
 const progressDialog = document.getElementById("progress-dialog");
