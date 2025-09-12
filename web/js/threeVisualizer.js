@@ -1,7 +1,5 @@
 // import文はすべて削除されています。
-
 // getRGBValueは、sharedFunctions.jsがHTMLで別途読み込まれることを前提とします。
-// import {getRGBValue} from './sharedFunctions.js';
 
 const visualizer = document.getElementById("visualizer");
 const container = document.getElementById( 'container' );
@@ -10,7 +8,7 @@ const progressIndicator = document.getElementById("progress-indicator");
 const colorPicker = document.getElementById("color-picker");
 const downloadButton = document.getElementById("download-button");
 
-const renderer = new THREE.WebGLRenderer( { antialisias: true } );
+const renderer = new THREE.WebGLRenderer( { antialias: true } );
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
 container.appendChild( renderer.domElement );
@@ -20,7 +18,6 @@ const pmremGenerator = new THREE.PMREMGenerator( renderer );
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color( 0x000000 );
-// THREE.RoomEnvironment を使用
 scene.environment = pmremGenerator.fromScene( new THREE.RoomEnvironment( renderer ), 0.04 ).texture;
 
 const ambientLight = new THREE.AmbientLight( 0xffffff , 3.0 );
@@ -30,7 +27,6 @@ camera.position.set( 5, 2, 8 );
 const pointLight = new THREE.PointLight( 0xffffff, 15 );
 camera.add( pointLight );
 
-// THREE.OrbitControls を使用
 const controls = new THREE.OrbitControls( camera, renderer.domElement );
 controls.target.set( 0, 0.5, 0 );
 controls.update();
@@ -113,13 +109,11 @@ async function main(filepath="") {
         var filepathNoExt = filepathSplit.join(".");
 
         if (fileExt == "obj"){
-            // THREE.OBJLoader を使用
             const loader = new THREE.OBJLoader();
 
             var mtlFolderpath = filepath.substring(0, Math.max(filepath.lastIndexOf("/"), filepath.lastIndexOf("\\"))) + "/";
             var mtlFilepath = filepathNoExt.replace(/^.*[\\\/]/, '') + ".mtl";
 
-            // THREE.MTLLoader を使用
             const mtlLoader = new THREE.MTLLoader();
             mtlLoader.setPath(url + '/viewfile?' + new URLSearchParams({"filepath": mtlFolderpath}));
             mtlLoader.load( mtlFilepath, function ( mtl ) {
@@ -139,11 +133,8 @@ async function main(filepath="") {
             }, onProgress, onError );
 
         } else if (fileExt == "glb") {
-            // THREE.DRACOLoader を使用
             const dracoLoader = new THREE.DRACOLoader();
-            // パスを修正
             dracoLoader.setDecoderPath( '/extensions/ComfyUI-3D-Pack/js/draco/gltf/' );
-            // THREE.GLTFLoader を使用
             const loader = new THREE.GLTFLoader();
             loader.setDRACOLoader( dracoLoader );
 
