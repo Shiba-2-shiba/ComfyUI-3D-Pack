@@ -1,10 +1,31 @@
-console.log("[iframe] threeVisualizer.js script started.");
+// [iframe] threeVisualizer.js script started.
+// このログはファイルの先頭に残しておきます
+
+// DOMとすべてのdeferスクリプトの準備が完了してから処理を開始する
+document.addEventListener('DOMContentLoaded', (event) => {
+    console.log('[iframe] DOMContentLoaded event fired. All scripts should be loaded.');
+
+    // 念のため、THREEオブジェクトの存在を最終確認
+    if (typeof THREE === 'undefined') {
+        console.error('[iframe] FATAL: THREE.js is not loaded even after DOMContentLoaded.');
+        // ここで処理を中断
+        const progressDialog = document.getElementById("progress-dialog");
+        if (progressDialog) {
+            progressDialog.innerHTML = "<p>Error: Failed to load 3D library.</p>";
+        }
+        return;
+    }
+
+    // 依存関係が解決したので、アプリケーションの初期化を安全に呼び出せる
+    initializeApp();
+});
+
 
 function initializeApp() {
     console.log("[iframe] STEP 2: Dependencies met. Entering initializeApp().");
 
     console.log("[iframe] STEP 3: Initializing constants and DOM elements...");
-    const visualizer = document.getElementById("visualizer");
+    // visualizerは loadModel でしか使われないため、ここでは不要
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
     const progressIndicator = document.getElementById("progress-indicator");
@@ -78,7 +99,6 @@ function initializeApp() {
     function loadModel(filepath) {
         console.log(`loadModel() called with filepath: "${filepath}"`);
         
-        // 既存のモデルがあればシーンから削除
         let existingModel = scene.getObjectByName("user_model");
         if (existingModel) {
             scene.remove(existingModel);
@@ -106,7 +126,7 @@ function initializeApp() {
             loader.load(currentURL, (gltf) => {
                  console.log("GLB model loaded successfully!");
                  const model = gltf.scene;
-                 model.name = "user_model"; // 名前を付けて後で削除しやすくする
+                 model.name = "user_model";
                  model.scale.setScalar(3);
                  scene.add(model);
                  if (gltf.animations && gltf.animations.length) {
@@ -147,38 +167,3 @@ function initializeApp() {
     window.parent.postMessage({ type: 'iframeReady', status: 'ready' }, '*');
     console.log("[iframe] ✅ Sent 'ready' message to parent.");
 }
-
-// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 START ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-function waitForThreeJS() {
-    console.log("[iframe] STEP 1: Checking for Three.js dependencies...");
-    const threeLoaded = typeof THREE !== 'undefined';
-    
-    // 各アドオンのロード状態を個別にチェック
-    const checks = {
-        OrbitControls: threeLoaded && !!THREE.OrbitControls,
-        RoomEnvironment: threeLoaded && !!THREE.RoomEnvironment,
-        GLTFLoader: threeLoaded && !!THREE.GLTFLoader,
-        DRACOLoader: threeLoaded && !!THREE.DRACOLoader,
-        OBJLoader: threeLoaded && !!THREE.OBJLoader
-    };
-
-    const addonsLoaded = Object.values(checks).every(Boolean);
-
-    // より詳細なログを出力
-    const statusString = Object.entries(checks)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(', ');
-    console.log(`[iframe] Status: THREE=${threeLoaded}, ${statusString}`);
-
-    if (threeLoaded && addonsLoaded) {
-        // 全ての依存関係が満たされたら初期化処理へ
-        initializeApp();
-    } else {
-        // 200ミリ秒後にもう一度チェック
-        setTimeout(waitForThreeJS, 200);
-    }
-}
-// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 END ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
-// 初期化プロセスを開始
-waitForThreeJS();
