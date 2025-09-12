@@ -1,9 +1,8 @@
-// threeVisualizer.js
+// threeVisualizer.js (デバッグログ追加・完成版)
 
 function initializeApp() {
     console.log("Three.js is ready. Initializing the application.");
     
-    // 元のグローバルスコープにあったコードをすべてここに移動
     const visualizer = document.getElementById("visualizer");
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
@@ -87,10 +86,12 @@ function initializeApp() {
         }
     };
     const onError = function ( e ) {
-        console.error( e );
+        console.error("Loader Error:", e);
     };
 
     async function main(filepath="") {
+        console.log(`main() called with filepath: "${filepath}"`);
+
         if (/^.+\.[a-zA-Z]+$/.test(filepath)){
             const params = new URLSearchParams({
                 filename: filepath,
@@ -98,12 +99,15 @@ function initializeApp() {
                 subfolder: ''
             });
             currentURL = url + '/view?' + params.toString();
+            
+            console.log("Attempting to load model from URL:", currentURL);
 
             var filepathSplit = filepath.split('.');
             var fileExt = filepathSplit.pop().toLowerCase();
             var filepathNoExt = filepathSplit.join(".");
 
             if (fileExt == "obj"){
+                console.log("Using OBJLoader.");
                 const loader = new THREE.OBJLoader();
                 var mtlFolderpath = filepath.substring(0, Math.max(filepath.lastIndexOf("/"), filepath.lastIndexOf("\\"))) + "/";
                 var mtlFilepath = filepathNoExt.replace(/^.*[\\\/]/, '') + ".mtl";
@@ -114,6 +118,7 @@ function initializeApp() {
                     loader.setMaterials( mtl );
                 }, onProgress, onError );
                 loader.load( currentURL, function ( obj ) {
+                    console.log("OBJ model loaded successfully!");
                     obj.scale.setScalar( 5 );
                     scene.add( obj );
                     obj.traverse(node => {
@@ -122,12 +127,16 @@ function initializeApp() {
                         }
                     });
                 }, onProgress, onError );
+
             } else if (fileExt == "glb") {
+                console.log("Using GLTFLoader.");
                 const dracoLoader = new THREE.DRACOLoader();
                 dracoLoader.setDecoderPath( '/extensions/ComfyUI-3D-Pack/js/draco/gltf/' );
                 const loader = new THREE.GLTFLoader();
                 loader.setDRACOLoader( dracoLoader );
+
                 loader.load( currentURL, function ( gltf ) {
+                    console.log("GLB model loaded successfully!", gltf);
                     const model = gltf.scene;
                     model.scale.set( 3, 3, 3 );
                     scene.add( model );
@@ -137,31 +146,31 @@ function initializeApp() {
                     });
                 }, onProgress, onError );
             } else {
-                // handle other file types if necessary
+                 console.error(`Unsupported file extension: .${fileExt}`);
             }
             needUpdate = true;
+        } else {
+            console.log("Filepath is empty or invalid, skipping load.");
         }
 
         scene.add( ambientLight );
         scene.add( camera );
+        
+        console.log("Closing progress dialog.");
         progressDialog.close();
+
         frameUpdate();
     }
     
-    // アプリケーションのエントリーポイント
     main();
 }
 
-// Three.js とそのアドオンがロードされるまで待機する関数
 function waitForThreeJS() {
-    // 必須ライブラリがすべてロードされているかチェック
     if (typeof THREE !== 'undefined' && THREE.RoomEnvironment && THREE.OrbitControls) {
         initializeApp();
     } else {
-        // 100ミリ秒後にもう一度チェック
         setTimeout(waitForThreeJS, 100);
     }
 }
 
-// 待機処理を開始
 waitForThreeJS();
