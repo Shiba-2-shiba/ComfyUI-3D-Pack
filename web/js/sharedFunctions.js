@@ -1,4 +1,4 @@
-export function getRGBValue(colorString="rgb(0, 0, 0)", scale01=false) {
+function getRGBValue(colorString="rgb(0, 0, 0)", scale01=false) {
     var color = colorString.split(/[\D]+/).filter(Boolean)
     for (let index = 0; index < color.length; index++) {
         color[index] = Number(color[index]);

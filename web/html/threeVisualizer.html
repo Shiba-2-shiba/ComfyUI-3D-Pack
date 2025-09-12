@@ -6,21 +6,7 @@
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/threeStyle.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/coloris.css">
 		<link type="text/css" rel="stylesheet" href="/extensions/ComfyUI-3D-Pack/style/sharedStyle.css">
-
-		<script type="importmap">
-		{
-			"imports": {
-				"three": "../js/three.module.js",
-				"three/addons/controls/OrbitControls.js": "../js/OrbitControls.js",
-				"three/addons/environments/RoomEnvironment.js": "../js/RoomEnvironment.js",
-				"three/addons/loaders/MTLLoader.js": "../js/MTLLoader.js",
-				"three/addons/loaders/OBJLoader.js": "../js/OBJLoader.js",
-				"three/addons/loaders/GLTFLoader.js": "../js/GLTFLoader.js",
-				"three/addons/loaders/DRACOLoader.js": "../js/DRACOLoader.js"
-			}
-		}
-		</script>
-		</head>
+	</head>
 
 	<body>
 		<div id="progress-container">
@@ -33,29 +19,40 @@
 		</div>
 
 		<div id="container">
-			<script id="visualizer" type="module" filepath="" timestamp="" crossorigin src="/extensions/ComfyUI-3D-Pack/js/threeVisualizer.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+            <script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+            <script defer id="visualizer" filepath="" timestamp="" crossorigin src="/extensions/ComfyUI-3D-Pack/js/threeVisualizer.js"></script>
 		</div>
 
-		<script src="/extensions/ComfyUI-3D-Pack/js/coloris.js"></script>
-		<script>
-			Coloris({
-				el: '.coloris',
-				theme: 'polaroid',
-				themeMode: 'dark',
-				format: 'rgb',
-				alpha: false,
-				swatches: [
-					'rgb(0, 0, 0)',
-					'rgb(128, 128, 128)',
-					'rgb(255, 255, 255)',
-					'rgb(132, 188, 218)',
-					'rgb(128, 227, 119)',
-					'rgb(213, 96, 98)'
-				]
+		<script defer src="/extensions/ComfyUI-3D-Pack/js/coloris.js"></script>
+        <script defer src="/extensions/ComfyUI-3D-Pack/js/sharedFunctions.js"></script>
+		
+        <script>
+			document.addEventListener('DOMContentLoaded', (event) => {
+				Coloris({
+					el: '.coloris',
+					theme: 'polaroid',
+					themeMode: 'dark',
+					format: 'rgb',
+					alpha: false,
+					swatches: [
+						'rgb(0, 0, 0)',
+						'rgb(128, 128, 128)',
+						'rgb(255, 255, 255)',
+						'rgb(132, 188, 218)',
+						'rgb(128, 227, 119)',
+						'rgb(213, 96, 98)'
+					]
+				});
 			});
 		</script>
+
 		<button type="button" id="download-button">Download</button>
 		<input type="text" id="color-picker" class="coloris" value="rgb(128, 128, 128)"></input>
 	</body>
-
 </html>

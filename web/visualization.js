@@ -2,24 +2,41 @@ import { app } from "/scripts/app.js"
 
 class Visualizer {
     constructor(node, container, visualSrc) {
-        this.node = node
+        this.node = node;
+        this.isReady = false; // iframeの準備状態を管理
+        this.pendingFilepath = null; // 保留中のファイルパス
 
-        this.iframe = document.createElement('iframe')
+        this.iframe = document.createElement('iframe');
         Object.assign(this.iframe, {
             scrolling: "no",
             overflow: "hidden",
-        })
-        this.iframe.src = "/extensions/ComfyUI-3D-Pack/html/" + visualSrc + ".html"
-        container.appendChild(this.iframe)
+        });
+        this.iframe.src = "/extensions/ComfyUI-3D-Pack/html/" + visualSrc + ".html";
+        container.appendChild(this.iframe);
+
+        // iframeからの「準備完了」メッセージを待つリスナー
+        window.addEventListener('message', (event) => {
+            if (event.source === this.iframe.contentWindow && event.data.type === 'iframeReady') {
+                console.log('[Comfy3D] Received "ready" message from iframe.');
+                this.isReady = true;
+                // 保留中のファイルパスがあれば、ここで送信
+                if (this.pendingFilepath) {
+                    this.updateVisual(this.pendingFilepath);
+                    this.pendingFilepath = null;
+                }
+            }
+        });
     }
 
     updateVisual(filepath) {
-        const iframeDocument = this.iframe.contentWindow.document
-        const previewScript = iframeDocument.getElementById('visualizer')
-        previewScript.setAttribute("filepath", filepath)
-
-        const timestamp = Date.now().toString()
-        previewScript.setAttribute("timestamp", timestamp)
+        // iframeの準備ができていれば直接送信、できていなければ保留
+        if (this.isReady) {
+            console.log(`[Comfy3D] iframe is ready. Posting message with filepath: ${filepath}`);
+            this.iframe.contentWindow.postMessage({ filepath: filepath }, '*');
+        } else {
+            console.log(`[Comfy3D] iframe not ready. Storing pending filepath: ${filepath}`);
+            this.pendingFilepath = filepath;
+        }
     }
 
     remove() {
@@ -27,6 +44,8 @@ class Visualizer {
     }
 }
 
+// createVisualizer関数とregisterVisualizer関数は前回のままで変更ありません
+// （ただし、以前のコードをコピー＆ペーストしてください）
 function createVisualizer(node, inputName, typeName, inputData, app) {
     node.name = inputName
 
@@ -74,12 +93,12 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
     document.body.appendChild(widget.visualizer)
 
     node.addCustomWidget(widget)
-
+    
+    // updateParametersからsetTimeoutを削除
     node.updateParameters = (params) => {
         node.visualizer.updateVisual(params.filepath)
     }
 
-    // Events for drawing backgound
     node.onDrawBackground = function (ctx) {
         if (!this.flags.collapsed) {
             node.visualizer.iframe.hidden = false
@@ -88,20 +107,14 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
         }
     }
 
-    // Make sure visualization iframe is always inside the node when resize the node
     node.onResize = function () {
         let [w, h] = this.size
         if (w <= 600) w = 600
         if (h <= 500) h = 500
-
-        if (w > 600) {
-            h = w - 100
-        }
-
+        if (w > 600) { h = w - 100 }
         this.size = [w, h]
     }
 
-    // Events for remove nodes
     node.onRemoved = () => {
         for (let w in node.widgets) {
             if (node.widgets[w].visualizer) {
@@ -110,37 +123,19 @@ function createVisualizer(node, inputName, typeName, inputData, app) {
         }
     }
 
-
-    return {
-        widget: widget,
-    }
+    return { widget: widget }
 }
 
 function registerVisualizer(nodeType, nodeData, nodeClassName, typeName){
     if (nodeData.name == nodeClassName) {
-        console.log("[3D Visualizer] Registering node: " + nodeData.name)
-
         const onNodeCreated = nodeType.prototype.onNodeCreated
-
         nodeType.prototype.onNodeCreated = async function() {
-            const r = onNodeCreated
-                ? onNodeCreated.apply(this, arguments)
-                : undefined
-
-            let Preview3DNode = app.graph._nodes.filter(
-                (wi) => wi.type == nodeClassName
-            )
+            const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined
             let nodeName = `Preview3DNode_${nodeClassName}`
-
-            console.log(`[Comfy3D] Create: ${nodeName}`)
-
-            const result = await createVisualizer.apply(this, [this, nodeName, typeName, {}, app])
-
+            await createVisualizer.apply(this, [this, nodeName, typeName, {}, app])
             this.setSize([600, 500])
-
             return r
         }
-
         nodeType.prototype.onExecuted = async function(message) {
             if (message?.previews) {
                 this.updateParameters(message.previews[0])
@@ -150,14 +145,10 @@ function registerVisualizer(nodeType, nodeData, nodeClassName, typeName){
 }
 
 app.registerExtension({
-    name: "Mr.ForExample.Visualizer.GS",
-
-    async init (app) {
-
-    },
-
+    name: "Mr.ForExample.Visualizer.Mesh",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DGS", "gsVisualizer")
-        registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DMesh", "threeVisualizer")
+        if (nodeData.name === "[Comfy3D] Preview 3DMesh") {
+             registerVisualizer(nodeType, nodeData, "[Comfy3D] Preview 3DMesh", "threeVisualizer");
+        }
     },
 })
