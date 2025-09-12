@@ -148,22 +148,37 @@ function initializeApp() {
     console.log("[iframe] ✅ Sent 'ready' message to parent.");
 }
 
-
+// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 START ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 function waitForThreeJS() {
     console.log("[iframe] STEP 1: Checking for Three.js dependencies...");
     const threeLoaded = typeof THREE !== 'undefined';
-    // アドオンの存在もチェック
-    const addonsLoaded = threeLoaded && THREE.RoomEnvironment && THREE.OrbitControls;
+    
+    // 各アドオンのロード状態を個別にチェック
+    const checks = {
+        OrbitControls: threeLoaded && !!THREE.OrbitControls,
+        RoomEnvironment: threeLoaded && !!THREE.RoomEnvironment,
+        GLTFLoader: threeLoaded && !!THREE.GLTFLoader,
+        DRACOLoader: threeLoaded && !!THREE.DRACOLoader,
+        OBJLoader: threeLoaded && !!THREE.OBJLoader
+    };
 
-    console.log(`[iframe] Status: THREE=${threeLoaded}, Addons=${addonsLoaded}`);
+    const addonsLoaded = Object.values(checks).every(Boolean);
+
+    // より詳細なログを出力
+    const statusString = Object.entries(checks)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(', ');
+    console.log(`[iframe] Status: THREE=${threeLoaded}, ${statusString}`);
 
     if (threeLoaded && addonsLoaded) {
+        // 全ての依存関係が満たされたら初期化処理へ
         initializeApp();
     } else {
         // 200ミリ秒後にもう一度チェック
         setTimeout(waitForThreeJS, 200);
     }
 }
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 END ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 // 初期化プロセスを開始
 waitForThreeJS();
