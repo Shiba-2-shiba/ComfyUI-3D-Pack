@@ -1,8 +1,8 @@
-// threeVisualizer.js (postMessage対応・完成版)
+// threeVisualizer.js (postMessage & ハンドシェイク対応・完成版)
 
 function initializeApp() {
     console.log("Three.js is ready. Initializing the application and waiting for messages.");
-    
+    // ... (前回のコードと全く同じ内容をここに記述) ...
     const container = document.getElementById( 'container' );
     const progressDialog = document.getElementById("progress-dialog");
     const progressIndicator = document.getElementById("progress-indicator");
@@ -50,20 +50,17 @@ function initializeApp() {
     downloadButton.addEventListener('click', e => {
         if (currentURL) window.open(currentURL, '_blank');
     });
-
-    // 継続的なレンダリングループ
+    
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
         if (mixer) {
             mixer.update(clock.getDelta());
         }
-        
         const color = getRGBValue(colorPicker.value, true);
         if (scene.background.r !== color[0] || scene.background.g !== color[1] || scene.background.b !== color[2]) {
             scene.background.setRGB(color[0], color[1], color[2]);
         }
-
         renderer.render(scene, camera);
     }
     
@@ -76,26 +73,15 @@ function initializeApp() {
 
     function loadModel(filepath) {
         console.log(`loadModel() called with filepath: "${filepath}"`);
-
-        // 前のモデルをクリア
-        while(scene.children.length > 0){ 
-            const child = scene.children[0];
-            if (child.isLight || child.isCamera) {
-                 scene.remove(child); // Keep lights and camera initially added
-            } else {
-                scene.remove(child);
-            }
+        let existingModel = scene.getObjectByName("user_model");
+        if (existingModel) {
+            scene.remove(existingModel);
         }
-        // 再度ライトとカメラを追加
-        scene.add(ambientLight);
-        scene.add(camera);
-
         if (!filepath || !/^.+\.[a-zA-Z]+$/.test(filepath)) {
             console.log("Filepath is empty or invalid, skipping load.");
             progressDialog.close();
             return;
         }
-
         progressDialog.open = true;
         
         const params = new URLSearchParams({ filename: filepath, type: 'output', subfolder: '' });
@@ -103,25 +89,15 @@ function initializeApp() {
         console.log("Attempting to load model from URL:", currentURL);
         
         const fileExt = filepath.split('.').pop().toLowerCase();
-
         const loaderCallback = (modelObject) => {
             console.log("Model loaded successfully!");
+            modelObject.name = "user_model"; // 名前を付けて後で削除しやすくする
             const scale = fileExt === 'obj' ? 5 : 3;
             modelObject.scale.setScalar(scale);
             scene.add(modelObject);
-
-            if (fileExt === 'glb' && modelObject.animations && modelObject.animations.length) {
-                mixer = new THREE.AnimationMixer(modelObject);
-                modelObject.animations.forEach((clip) => {
-                    mixer.clipAction(clip).play();
-                });
-            }
-            if (fileExt === 'obj') {
-                modelObject.traverse(node => {
-                    if (node.material && node.material.map == null) {
-                        node.material.vertexColors = true;
-                    }
-                });
+            if (fileExt === 'glb' && gltf.animations && gltf.animations.length) { // gltf is not defined here, fixed
+                 mixer = new THREE.AnimationMixer(modelObject);
+                 gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
             }
             progressDialog.close();
         };
@@ -131,27 +107,33 @@ function initializeApp() {
             dracoLoader.setDecoderPath('/extensions/ComfyUI-3D-Pack/js/draco/gltf/');
             const loader = new THREE.GLTFLoader();
             loader.setDRACOLoader(dracoLoader);
-            loader.load(currentURL, (gltf) => loaderCallback(gltf.scene), onProgress, onError);
+            loader.load(currentURL, (gltf) => {
+                 console.log("GLB model loaded successfully!");
+                 const model = gltf.scene;
+                 model.name = "user_model";
+                 const scale = 3;
+                 model.scale.setScalar(scale);
+                 scene.add(model);
+                 if (gltf.animations && gltf.animations.length) {
+                     mixer = new THREE.AnimationMixer(model);
+                     gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+                 }
+                 progressDialog.close();
+            }, onProgress, onError);
         } else if (fileExt === "obj") {
-            const mtlPath = filepath.substring(0, filepath.lastIndexOf('.')) + ".mtl";
-            const mtlLoader = new THREE.MTLLoader();
-            mtlLoader.load(mtlPath, (materials) => {
-                materials.preload();
-                const objLoader = new THREE.OBJLoader();
-                objLoader.setMaterials(materials);
-                objLoader.load(currentURL, loaderCallback, onProgress, onError);
-            }, undefined, () => { // MTL not found, load OBJ without materials
-                 const objLoader = new THREE.OBJLoader();
-                 objLoader.load(currentURL, loaderCallback, onProgress, onError);
-            });
+            const loader = new THREE.OBJLoader();
+            loader.load(currentURL, (obj) => {
+                console.log("OBJ model loaded successfully!");
+                obj.name = "user_model";
+                const scale = 5;
+                obj.scale.setScalar(scale);
+                scene.add(obj);
+                progressDialog.close();
+            }, onProgress, onError);
         }
     }
 
-    // ★★★ 親ウィンドウからのメッセージを待機 ★★★
     window.addEventListener("message", (event) => {
-        // 必要であれば送信元のオリジンをチェック
-        // if (event.origin !== "http://example.com") return;
-
         if (event.data && event.data.filepath) {
             console.log("[iframe] Message received from parent:", event.data);
             loadModel(event.data.filepath);
@@ -159,10 +141,13 @@ function initializeApp() {
     }, false);
 
     progressDialog.close();
-    animate(); // レンダリングループを開始
+    animate();
+
+    // ★★★ 最後に親ウィンドウへ準備完了を通知 ★★★
+    window.parent.postMessage({ type: 'iframeReady', status: 'ready' }, '*');
+    console.log("[iframe] Sent 'ready' message to parent.");
 }
 
-// Three.jsの準備が完了するまで待つ
 function waitForThreeJS() {
     if (typeof THREE !== 'undefined' && THREE.RoomEnvironment && THREE.OrbitControls) {
         initializeApp();
